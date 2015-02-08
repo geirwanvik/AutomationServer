@@ -19,11 +19,12 @@ public:
 signals:
 
 public slots:
-    void TestSlot(int id);
+
 
 private:
     QList<Device> deviceList;
     TelldusCoreAPI *tDCore;
+    Server *tcpServer;
 
     QString SaveConfig(void);
     QString LoadConfig(void);

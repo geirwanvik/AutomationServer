@@ -4,8 +4,6 @@
 #include <QObject>
 #include <QtNetwork>
 
-class QTcpServer;
-class QNetworkSession;
 
 class Server : public QObject
 {
@@ -17,15 +15,14 @@ public:
 signals:
 
 public slots:
+    void NewConnection();
 
 private slots:
-    void sessionOpened();
-    void sendFortune();
+
 
 private:
     QTcpServer *tcpServer;
-    QStringList fortunes;
-    QNetworkSession *networkSession;
+    QTcpSocket *socket;
 };
 
 #endif // SERVER_H

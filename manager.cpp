@@ -4,6 +4,7 @@ Manager::Manager(QObject *parent) : QObject(parent)
 {
     QString msg;
     tDCore = new TelldusCoreAPI;
+    tcpServer = new Server;
 
 /*
     // TEST
@@ -66,10 +67,6 @@ Manager::Manager(QObject *parent) : QObject(parent)
     }
 }
 
-void Manager::TestSlot(int id)
-{
-    qDebug() << "Trigg from Manager with id " << id;
-}
 
 Manager::~Manager()
 {
