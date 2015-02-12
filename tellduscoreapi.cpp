@@ -3,11 +3,10 @@
 
 const int DATA_LENGTH = 20;
 
+
 TelldusCoreAPI::TelldusCoreAPI(QObject *parent) : QObject(parent)
 {
-    timeout = new QTime;
     tdInit();
-    EnableDeviceChangeEvent();
 }
 
 TelldusCoreAPI::~TelldusCoreAPI()
@@ -25,7 +24,6 @@ QString TelldusCoreAPI::ClearAllDevicesInCore()
     bool success;
     QString returnMsg;
     QByteArray devList;
-    QEventLoop loop;
 
 
     int numberOfDevices = tdGetNumberOfDevices();
@@ -45,9 +43,10 @@ QString TelldusCoreAPI::ClearAllDevicesInCore()
       }
     }
 
-    timeout->start();
+    QTime myClock;
+    myClock.start();
 
-    while(tdGetNumberOfDevices() != 0 && timeout->elapsed() < 5000)
+    while(tdGetNumberOfDevices() != 0 && myClock.elapsed() < 5000)
     {
         // Wait for telldusd to update or 5 sec
     }
@@ -116,6 +115,10 @@ QString TelldusCoreAPI::RegisterNewDevice(Device &dev)
         }
     }
 
+    dev.SetMethodsSupported(tdMethods(id, 1023)); // Check for all supported methods, all 10 bits
+    dev.SetLastCommandSent(tdLastSentCommand(id,dev.GetMethodsSupported()));
+
+
     if(returnMsg.isEmpty())
     {
         returnMsg.append("Success");
@@ -125,7 +128,7 @@ QString TelldusCoreAPI::RegisterNewDevice(Device &dev)
 
 void TelldusCoreAPI::EnableControllerEvent()
 {
-    controllerEventId = tdRegisterControllerEvent( (TDControllerEvent) &ControllerEvent, 0);
+    controllerEventId = tdRegisterControllerEvent( (TDControllerEvent) &ControllerEventCallback, 0);
 }
 
 void TelldusCoreAPI::DisableControllerEvent()
@@ -135,7 +138,7 @@ void TelldusCoreAPI::DisableControllerEvent()
 
 void TelldusCoreAPI::EnableDeviceEvent()
 {
-    deviceEventId = tdRegisterDeviceEvent( (TDDeviceEvent) &DeviceEvent, 0);
+    deviceEventId = tdRegisterDeviceEvent( (TDDeviceEvent) &DeviceEventCallback, 0);
 }
 
 void TelldusCoreAPI::DisableDeviceEvent()
@@ -145,7 +148,7 @@ void TelldusCoreAPI::DisableDeviceEvent()
 
 void TelldusCoreAPI::EnableDeviceChangeEvent()
 {
-    deviceChangedEventId = tdRegisterDeviceChangeEvent( (TDDeviceChangeEvent) &DeviceChangeEvent, 0);
+    deviceChangedEventId = tdRegisterDeviceChangeEvent( (TDDeviceChangeEvent) &DeviceChangeEventCallback, 0);
 }
 
 void TelldusCoreAPI::DisableDeviceChangeEvent()
@@ -155,7 +158,7 @@ void TelldusCoreAPI::DisableDeviceChangeEvent()
 
 void TelldusCoreAPI::EnableRawDataEvent()
 {
-    rawDataEventId = tdRegisterRawDeviceEvent( (TDRawDeviceEvent) &RawDataEvent, 0);
+    rawDataEventId = tdRegisterRawDeviceEvent( (TDRawDeviceEvent) &RawDataEventCallback, 0);
 }
 
 void TelldusCoreAPI::DisableRawDataEvent()
@@ -165,7 +168,7 @@ void TelldusCoreAPI::DisableRawDataEvent()
 
 void TelldusCoreAPI::EnableSensorEvent()
 {
-    sensorEventId = tdRegisterSensorEvent( (TDSensorEvent) &SensorEvent, 0);
+    sensorEventId = tdRegisterSensorEvent( (TDSensorEvent) &SensorEventCallback, 0);
 }
 
 void TelldusCoreAPI::DisableSensorEvent()
@@ -174,73 +177,105 @@ void TelldusCoreAPI::DisableSensorEvent()
 }
 
 
-void WINAPI TelldusCoreAPI::RawDataEvent(const char *data, int controllerId, int callbackId, void *context)
+void WINAPI TelldusCoreAPI::RawDataEventCallback(const char *data, int controllerId, int, void*)
 {
-    QDateTime local(QDateTime::currentDateTime());
-    QString temp = data;
-    QStringList processedData = temp.split(";");
-    processedData.prepend("\t");
-    processedData.prepend(QString::number(local.toMSecsSinceEpoch()));
-    qDebug() << processedData;
-
-
-}
-
-void WINAPI TelldusCoreAPI::DeviceEvent(int deviceId, int method, const char *data, int callbackId, void *context)
-{
-
-}
-
-void WINAPI TelldusCoreAPI::SensorEvent(const char *protocol, const char *model, int sensorId, int dataType, const char *value, int ts, int callbackId, void *context)
-{
-    char timeBuf[80];
-    time_t timestamp = ts;
-
-    //Print the sensor
-    qDebug() << protocol << model << sensorId;
-
-
-    //Retrieve the values the sensor supports
-    if (dataType == TELLSTICK_TEMPERATURE) {
-        strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S", localtime(&timestamp));
-        qDebug() << "Temperature" << value << timeBuf;
-
-    } else if (dataType == TELLSTICK_HUMIDITY) {
-        strftime(timeBuf, sizeof(timeBuf), "%Y-%m-%d %H:%M:%S", localtime(&timestamp));
-        qDebug() << "Humidity:" << value << timeBuf;
-    }
-}
-
-void WINAPI TelldusCoreAPI::DeviceChangeEvent(int deviceId, int changeEvent, int changeType, int callbackId, void *context)
-{
-    if(changeEvent == TELLSTICK_DEVICE_ADDED)
+    static QStringList lastEvent;
+    QStringList eventInfo;
+    eventInfo << "RawDataEvent";
+    eventInfo << QTime::currentTime().toString("hh:mm:ss.zzz");
+    eventInfo << QString::fromLocal8Bit(data).split(";");
+    eventInfo << QString::number(controllerId);
+    if(lastEvent == eventInfo) // Duplicate callback
     {
-        qDebug() << "Device added with id " << deviceId;
+        lastEvent = eventInfo;
+        return;
     }
-    else if(changeEvent == TELLSTICK_DEVICE_REMOVED)
-    {
-        qDebug() << "Device removed with id " << deviceId;
-    }
-    else if(changeEvent == TELLSTICK_DEVICE_CHANGED)
-    {
-        if(changeType == TELLSTICK_CHANGE_NAME)
-        {
-            qDebug() << "Device changed name id " << deviceId;
-        }
-        if(changeType == TELLSTICK_CHANGE_PROTOCOL)
-        {
-            qDebug() << "Device changed protocol id " << deviceId;
-        }
-        if(changeType == TELLSTICK_CHANGE_MODEL)
-        {
-            qDebug() << "Device changed model id " << deviceId;
-        }
-    }
+    lastEvent = eventInfo;
+
+    TelldusCore::Instance()->RawDataEvent(eventInfo);
 }
 
-void WINAPI TelldusCoreAPI::ControllerEvent(int controllerId, int changeEvent, int changeType, const char *newValue, int callbackId, void *context)
+void WINAPI TelldusCoreAPI::DeviceEventCallback(int deviceId, int method, const char *data, int, void*)
 {
+    static QStringList lastEvent;
+    QStringList eventInfo;
+    eventInfo << "DeviceEvent";
+    eventInfo << QTime::currentTime().toString("hh:mm:ss.zzz");
+    eventInfo << QString::number(deviceId);
+    eventInfo << QString::number(method);
+    eventInfo << QString::fromLocal8Bit(data).split(";");
 
+    if(lastEvent == eventInfo) // Duplicate callback
+    {
+        lastEvent = eventInfo;
+        return;
+    }
+    lastEvent = eventInfo;
+
+    TelldusCore::Instance()->DeviceEvent(eventInfo);
+}
+
+void WINAPI TelldusCoreAPI::SensorEventCallback(const char *protocol, const char *model, int sensorId, int dataType, const char *value, int, int, void*)
+{
+    static QStringList lastEvent;
+    QStringList eventInfo;
+    eventInfo << "SensorEvent";
+    eventInfo << QTime::currentTime().toString("hh:mm:ss.zzz");
+    eventInfo << QString::fromLocal8Bit(protocol);
+    eventInfo << QString::fromLocal8Bit(model);
+    eventInfo << QString::number(sensorId);
+    eventInfo << QString::number(dataType);
+    eventInfo << QString::fromLocal8Bit(value);
+
+    if(lastEvent == eventInfo) // Duplicate callback
+    {
+        lastEvent = eventInfo;
+        return;
+    }
+    lastEvent = eventInfo;
+
+    TelldusCore::Instance()->SensorEvent(eventInfo);
+}
+
+void WINAPI TelldusCoreAPI::DeviceChangeEventCallback(int deviceId, int changeEvent, int changeType, int, void*)
+{
+    static QStringList lastEvent;
+    QStringList eventInfo;
+    eventInfo << "DeviceChangeEvent";
+    eventInfo << QTime::currentTime().toString("hh:mm:ss.zzz");
+    eventInfo << QString::number(deviceId);
+    eventInfo << QString::number(changeEvent);
+    eventInfo << QString::number(changeType);
+
+    if(lastEvent == eventInfo) // Duplicate callback
+    {
+        lastEvent = eventInfo;
+        return;
+    }
+    lastEvent = eventInfo;
+
+    TelldusCore::Instance()->DeviceChangeEvent(eventInfo);
+}
+
+void WINAPI TelldusCoreAPI::ControllerEventCallback(int controllerId, int changeEvent, int changeType, const char *newValue, int, void*)
+{
+    static QStringList lastEvent;
+    QStringList eventInfo;
+    eventInfo << "ControllerEvent";
+    eventInfo << QTime::currentTime().toString("hh:mm:ss.zzz");
+    eventInfo << QString::number(controllerId);
+    eventInfo << QString::number(changeEvent);
+    eventInfo << QString::number(changeType);
+    eventInfo << QString::fromLocal8Bit(newValue);
+
+    if(lastEvent == eventInfo) // Duplicate callback
+    {
+        lastEvent = eventInfo;
+        return;
+    }
+    lastEvent = eventInfo;
+
+    TelldusCore::Instance()->ControllerEvent(eventInfo);
 }
 
 

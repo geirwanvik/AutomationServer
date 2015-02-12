@@ -3,10 +3,20 @@
 Manager::Manager(QObject *parent) : QObject(parent)
 {
     QString msg;
-    tDCore = new TelldusCoreAPI;
-    tcpServer = new Server;
+    tDCore = new TelldusCoreAPI(this);
+    tcpServer = new Server(this);
 
-/*
+    // Singleton instance of TelldusCoreAPI to forward events from the static callback functions
+    connect(TelldusCore::Instance(),SIGNAL(DeviceChangeEvent(QStringList)),this,SLOT(ProcessEvents(QStringList)));
+    connect(TelldusCore::Instance(),SIGNAL(ControllerEvent(QStringList)),this,SLOT(ProcessEvents(QStringList)));
+    connect(TelldusCore::Instance(),SIGNAL(DeviceEvent(QStringList)),this,SLOT(ProcessEvents(QStringList)));
+    connect(TelldusCore::Instance(),SIGNAL(RawDataEvent(QStringList)),this,SLOT(ProcessEvents(QStringList)));
+    connect(TelldusCore::Instance(),SIGNAL(SensorEvent(QStringList)),this,SLOT(ProcessEvents(QStringList)));
+
+    tDCore->EnableRawDataEvent();
+    tDCore->EnableDeviceChangeEvent();
+
+
     // TEST
     //int id, QString &name, QString &protocol, QString &model, QString &paramHouse, QString &paramUnit, QString &type, int methodsSupported, int lastSentCommand
     QString name = "Stikk";
@@ -31,7 +41,7 @@ Manager::Manager(QObject *parent) : QObject(parent)
     deviceList.append(Dimmer);
 
     // TEST END
-*/
+
 
 
     // Check if config file exists, else inform client.
@@ -73,6 +83,16 @@ Manager::~Manager()
 
 }
 
+void Manager::ProcessEvents(QStringList eventList)
+{
+    // Log if enabled
+
+    // Forward raw events if client is looking for new switches and sensors
+
+    qDebug() << eventList;
+
+}
+
 QString Manager::SaveConfig()
 {
     QString path = QCoreApplication::applicationDirPath();
@@ -85,7 +105,7 @@ QString Manager::SaveConfig()
     }
 
     QDataStream out(&file);
-    out.setVersion(QDataStream::Qt_5_4);
+    out.setVersion(QDataStream::Qt_5_0);
 
     QList<Device>::iterator i;
     for(i = deviceList.begin(); i != deviceList.end(); i++)
@@ -108,7 +128,7 @@ QString Manager::LoadConfig()
     }
 
     QDataStream in(&file);
-    in.setVersion(QDataStream::Qt_5_4);
+    in.setVersion(QDataStream::Qt_5_0);
     deviceList.clear();
     while(!in.atEnd())
     {

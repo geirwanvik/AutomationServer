@@ -20,6 +20,8 @@ signals:
 
 public slots:
 
+private slots:
+    void ProcessEvents(QStringList eventList);
 
 private:
     QList<Device> deviceList;

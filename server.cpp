@@ -3,7 +3,7 @@
 Server::Server(QObject *parent) : QObject(parent)
 {
     tcpServer = new QTcpServer(this);
-    socket = new QTcpSocket;
+    socket = new QTcpSocket(this);
     connect(tcpServer,SIGNAL(newConnection()),this,SLOT(NewConnection()));
 
     if(!tcpServer->listen(QHostAddress::Any, 2211))
