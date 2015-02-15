@@ -29,6 +29,9 @@ public:
     void EnableControllerEvent(void);
     void DisableControllerEvent(void);
 
+    QString DeviceTurnOn(Device &dev);
+    QString DeviceTurnOff(Device &dev);
+
 signals:
     void RawDataEvent(QStringList param);
     void ControllerEvent(QStringList param);

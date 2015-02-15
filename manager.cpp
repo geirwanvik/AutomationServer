@@ -9,12 +9,20 @@ Manager::Manager(QObject *parent) : QObject(parent)
     // Singleton instance of TelldusCoreAPI to forward events from the static callback functions
     connect(TelldusCore::Instance(),SIGNAL(DeviceChangeEvent(QStringList)),this,SLOT(ProcessEvents(QStringList)));
     connect(TelldusCore::Instance(),SIGNAL(ControllerEvent(QStringList)),this,SLOT(ProcessEvents(QStringList)));
-    connect(TelldusCore::Instance(),SIGNAL(DeviceEvent(QStringList)),this,SLOT(ProcessEvents(QStringList)));
     connect(TelldusCore::Instance(),SIGNAL(RawDataEvent(QStringList)),this,SLOT(ProcessEvents(QStringList)));
-    connect(TelldusCore::Instance(),SIGNAL(SensorEvent(QStringList)),this,SLOT(ProcessEvents(QStringList)));
 
-    tDCore->EnableRawDataEvent();
+    connect(TelldusCore::Instance(),SIGNAL(SensorEvent(QStringList)),this,SLOT(UpdateSensor(QStringList)));
+    connect(TelldusCore::Instance(),SIGNAL(DeviceEvent(QStringList)),this,SLOT(UpdateDevice(QStringList)));
+
+    connect(tcpServer,SIGNAL(TelegramReceived(QStringList)),this,SLOT(ProcessIncomingTelegram(QStringList)));
+
+
     tDCore->EnableDeviceChangeEvent();
+    tDCore->EnableControllerEvent();
+    tDCore->EnableRawDataEvent();
+
+    tDCore->EnableDeviceEvent();
+    tDCore->EnableSensorEvent();
 
 
     // TEST
@@ -37,8 +45,18 @@ Manager::Manager(QObject *parent) : QObject(parent)
 
     Device Dimmer(101,name,protocol,model,house,unit,type,0,0);
 
+    name = "Switch";
+    protocol = "arctech";
+    model = "selflearning-switch:nexa";
+    house = "15327318";
+    unit = "12";
+    type = "command";
+
+    Device Switch(101,name,protocol,model,house,unit,type,0,0);
+
     deviceList.append(Stikk);
     deviceList.append(Dimmer);
+    deviceList.append(Switch);
 
     // TEST END
 
@@ -88,9 +106,24 @@ void Manager::ProcessEvents(QStringList eventList)
     // Log if enabled
 
     // Forward raw events if client is looking for new switches and sensors
+    //qDebug() << eventList;
 
-    qDebug() << eventList;
+}
 
+void Manager::UpdateDevice(QStringList deviceData)
+{
+    qDebug() << "DeviceEvent" << deviceData;
+}
+
+void Manager::UpdateSensor(QStringList sensorData)
+{
+    qDebug() << "SensorEvent" << sensorData;
+}
+
+void Manager::ProcessIncomingTelegram(QStringList telegram)
+{
+    Device dev = deviceList.at(0);
+    tDCore->DeviceTurnOn(dev);
 }
 
 QString Manager::SaveConfig()
@@ -122,6 +155,7 @@ QString Manager::LoadConfig()
     QString path = QCoreApplication::applicationDirPath();
     path.append("/config.dat");
     QFile file(path);
+
     if(!file.open(QIODevice::ReadOnly))
     {
         return ("Cannot open file for reading: " + file.errorString());

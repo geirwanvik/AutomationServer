@@ -4,7 +4,6 @@
 #include <QObject>
 #include <QtNetwork>
 
-
 class Server : public QObject
 {
     Q_OBJECT
@@ -13,16 +12,21 @@ public:
     ~Server();
 
 signals:
+    void TelegramReceived(QStringList);
 
 public slots:
-    void NewConnection();
+    void SendData(QStringList list);
+
 
 private slots:
-
+    void NewConnection();
+    void Disconnected();
+    void DataReceived();
 
 private:
     QTcpServer *tcpServer;
     QTcpSocket *socket;
+    quint16 nextBlockSize;
 };
 
 #endif // SERVER_H

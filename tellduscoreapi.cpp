@@ -136,6 +136,39 @@ void TelldusCoreAPI::DisableControllerEvent()
     tdUnregisterCallback(controllerEventId);
 }
 
+QString TelldusCoreAPI::DeviceTurnOn(Device &dev)
+{
+    bool sucess;
+    int id = dev.GetId();
+    int methods = dev.GetMethodsSupported();
+    if(methods & TELLSTICK_TURNON)
+    {
+        sucess = tdTurnOn(id);
+    }
+    if(!sucess)
+    {
+        return "Failed";
+    }
+    return "Success";
+}
+
+QString TelldusCoreAPI::DeviceTurnOff(Device &dev)
+{
+    bool sucess;
+    int id = dev.GetId();
+    int methods = dev.GetMethodsSupported();
+    if(methods & TELLSTICK_TURNOFF)
+    {
+        sucess = tdTurnOn(id);
+    }
+    if(!sucess)
+    {
+        return "Failed";
+    }
+    return "Success";
+}
+
+
 void TelldusCoreAPI::EnableDeviceEvent()
 {
     deviceEventId = tdRegisterDeviceEvent( (TDDeviceEvent) &DeviceEventCallback, 0);
@@ -197,42 +230,22 @@ void WINAPI TelldusCoreAPI::RawDataEventCallback(const char *data, int controlle
 
 void WINAPI TelldusCoreAPI::DeviceEventCallback(int deviceId, int method, const char *data, int, void*)
 {
-    static QStringList lastEvent;
     QStringList eventInfo;
-    eventInfo << "DeviceEvent";
-    eventInfo << QTime::currentTime().toString("hh:mm:ss.zzz");
     eventInfo << QString::number(deviceId);
     eventInfo << QString::number(method);
     eventInfo << QString::fromLocal8Bit(data).split(";");
-
-    if(lastEvent == eventInfo) // Duplicate callback
-    {
-        lastEvent = eventInfo;
-        return;
-    }
-    lastEvent = eventInfo;
 
     TelldusCore::Instance()->DeviceEvent(eventInfo);
 }
 
 void WINAPI TelldusCoreAPI::SensorEventCallback(const char *protocol, const char *model, int sensorId, int dataType, const char *value, int, int, void*)
 {
-    static QStringList lastEvent;
     QStringList eventInfo;
-    eventInfo << "SensorEvent";
-    eventInfo << QTime::currentTime().toString("hh:mm:ss.zzz");
     eventInfo << QString::fromLocal8Bit(protocol);
     eventInfo << QString::fromLocal8Bit(model);
     eventInfo << QString::number(sensorId);
     eventInfo << QString::number(dataType);
     eventInfo << QString::fromLocal8Bit(value);
-
-    if(lastEvent == eventInfo) // Duplicate callback
-    {
-        lastEvent = eventInfo;
-        return;
-    }
-    lastEvent = eventInfo;
 
     TelldusCore::Instance()->SensorEvent(eventInfo);
 }
