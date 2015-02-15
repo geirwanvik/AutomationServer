@@ -7,6 +7,10 @@ const int DATA_LENGTH = 20;
 TelldusCoreAPI::TelldusCoreAPI(QObject *parent) : QObject(parent)
 {
     tdInit();
+    tdRegisterDeviceEvent( (TDDeviceEvent) &DeviceEventCallback, 0);
+    tdRegisterSensorEvent( (TDSensorEvent) &SensorEventCallback, 0);
+    tdRegisterRawDeviceEvent( (TDRawDeviceEvent) &RawDataEventCallback, 0);
+    tdRegisterDeviceChangeEvent( (TDDeviceChangeEvent) &DeviceChangeEventCallback, 0);
 }
 
 TelldusCoreAPI::~TelldusCoreAPI()
@@ -115,8 +119,18 @@ QString TelldusCoreAPI::RegisterNewDevice(Device &dev)
         }
     }
 
-    dev.SetMethodsSupported(tdMethods(id, 1023)); // Check for all supported methods, all 10 bits
-    dev.SetLastCommandSent(tdLastSentCommand(id,dev.GetMethodsSupported()));
+    int methods = tdMethods(id, 1023);
+    dev.SetMethodsSupported(methods); // Check for all supported methods, all 10 bits
+    dev.SetLastCommandSent(tdLastSentCommand(id,methods));
+    if(methods & TELLSTICK_DIM)
+    {
+        dev.SetIsDimmer(true);
+    }
+    else
+    {
+        dev.SetIsDimmer(false);
+    }
+
 
 
     if(returnMsg.isEmpty())
@@ -126,26 +140,16 @@ QString TelldusCoreAPI::RegisterNewDevice(Device &dev)
     return returnMsg;
 }
 
-void TelldusCoreAPI::EnableControllerEvent()
-{
-    controllerEventId = tdRegisterControllerEvent( (TDControllerEvent) &ControllerEventCallback, 0);
-}
-
-void TelldusCoreAPI::DisableControllerEvent()
-{
-    tdUnregisterCallback(controllerEventId);
-}
-
 QString TelldusCoreAPI::DeviceTurnOn(Device &dev)
 {
-    bool sucess;
+    bool success;
     int id = dev.GetId();
     int methods = dev.GetMethodsSupported();
     if(methods & TELLSTICK_TURNON)
     {
-        sucess = tdTurnOn(id);
+        success = tdTurnOn(id);
     }
-    if(!sucess)
+    if(!success)
     {
         return "Failed";
     }
@@ -154,60 +158,57 @@ QString TelldusCoreAPI::DeviceTurnOn(Device &dev)
 
 QString TelldusCoreAPI::DeviceTurnOff(Device &dev)
 {
-    bool sucess;
+    bool success;
     int id = dev.GetId();
     int methods = dev.GetMethodsSupported();
     if(methods & TELLSTICK_TURNOFF)
     {
-        sucess = tdTurnOn(id);
+        success = tdTurnOn(id);
     }
-    if(!sucess)
+    if(!success)
     {
         return "Failed";
     }
     return "Success";
 }
 
-
-void TelldusCoreAPI::EnableDeviceEvent()
+QString TelldusCoreAPI::DeviceDim(Device &dev)
 {
-    deviceEventId = tdRegisterDeviceEvent( (TDDeviceEvent) &DeviceEventCallback, 0);
+    bool success;
+    int id = dev.GetId();
+    int methods = dev.GetMethodsSupported();
+    if(methods & TELLSTICK_DIM)
+    {
+        success = tdDim(id,dev.GetValue());
+    }
+    if(!success)
+    {
+        return "Failed";
+    }
+    return "Success";
 }
 
-void TelldusCoreAPI::DisableDeviceEvent()
+QString TelldusCoreAPI::DeviceCommand(int id, int method, int value)
 {
-    tdUnregisterCallback(deviceEventId);
+    bool success;
+    int returnMethod = tdMethods(id,method);
+    if(returnMethod == method)
+    {
+        if(method == TELLSTICK_TURNON)
+        {
+            tdTurnOn(id);
+        }
+        else if(method == TELLSTICK_TURNOFF)
+        {
+            tdTurnOff(id);
+        }
+        else if(method == TELLSTICK_DIM)
+        {
+            tdDim(id,(QString::number(value).constData()->toLatin1()));
+        }
+    }
 }
 
-void TelldusCoreAPI::EnableDeviceChangeEvent()
-{
-    deviceChangedEventId = tdRegisterDeviceChangeEvent( (TDDeviceChangeEvent) &DeviceChangeEventCallback, 0);
-}
-
-void TelldusCoreAPI::DisableDeviceChangeEvent()
-{
-    tdUnregisterCallback(deviceChangedEventId);
-}
-
-void TelldusCoreAPI::EnableRawDataEvent()
-{
-    rawDataEventId = tdRegisterRawDeviceEvent( (TDRawDeviceEvent) &RawDataEventCallback, 0);
-}
-
-void TelldusCoreAPI::DisableRawDataEvent()
-{
-    tdUnregisterCallback(rawDataEventId);
-}
-
-void TelldusCoreAPI::EnableSensorEvent()
-{
-    sensorEventId = tdRegisterSensorEvent( (TDSensorEvent) &SensorEventCallback, 0);
-}
-
-void TelldusCoreAPI::DisableSensorEvent()
-{
-    tdUnregisterCallback(sensorEventId);
-}
 
 
 void WINAPI TelldusCoreAPI::RawDataEventCallback(const char *data, int controllerId, int, void*)
@@ -230,10 +231,10 @@ void WINAPI TelldusCoreAPI::RawDataEventCallback(const char *data, int controlle
 
 void WINAPI TelldusCoreAPI::DeviceEventCallback(int deviceId, int method, const char *data, int, void*)
 {
-    QStringList eventInfo;
-    eventInfo << QString::number(deviceId);
-    eventInfo << QString::number(method);
-    eventInfo << QString::fromLocal8Bit(data).split(";");
+    QList<int> eventInfo;
+    eventInfo << deviceId;
+    eventInfo << method;
+    eventInfo << QString::fromLocal8Bit(data).toInt();
 
     TelldusCore::Instance()->DeviceEvent(eventInfo);
 }
@@ -241,11 +242,11 @@ void WINAPI TelldusCoreAPI::DeviceEventCallback(int deviceId, int method, const 
 void WINAPI TelldusCoreAPI::SensorEventCallback(const char *protocol, const char *model, int sensorId, int dataType, const char *value, int, int, void*)
 {
     QStringList eventInfo;
-    eventInfo << QString::fromLocal8Bit(protocol);
-    eventInfo << QString::fromLocal8Bit(model);
     eventInfo << QString::number(sensorId);
     eventInfo << QString::number(dataType);
     eventInfo << QString::fromLocal8Bit(value);
+    eventInfo << QString::fromLocal8Bit(protocol);
+    eventInfo << QString::fromLocal8Bit(model);
 
     TelldusCore::Instance()->SensorEvent(eventInfo);
 }

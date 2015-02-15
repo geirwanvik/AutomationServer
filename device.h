@@ -1,5 +1,5 @@
-#ifndef DEVICE_H
-#define DEVICE_H
+#ifndef DEVICE
+#define DEVICE
 
 #include <QtCore>
 
@@ -7,9 +7,9 @@ class Device
 {
 public:
     Device();
-    Device(int id, QString &name, QString &protocol, QString &model, QString &paramHouse, QString &paramUnit, QString &type, int methodsSupported,int lastSentCommand);
+    Device(int id, QString &name, QString &protocol, QString &model, QString &paramHouse, QString &paramUnit, QString &type, int methodsSupported,int lastSentCommand, int value);
+    Device(QString &name, QString &protocol, QString &model, QString &paramHouse, QString &paramUnit,QString &type);
     Device(const Device &other);
-
     ~Device();
 
     void SetId(const int &id) {this->id = id;}
@@ -38,6 +38,13 @@ public:
 
     void SetLastCommandSent(const int &lastSentCommand) {this->lastSentCommand = lastSentCommand;}
     int GetLastCommandSent() const {return lastSentCommand;}
+    QString GetLastCommandSent();
+
+    void SetValue(const int &value) {this->value = value;}
+    int GetValue() const {return value;}
+
+    void SetIsDimmer(const bool &dimmer) {this->dimmer = dimmer;}
+    bool IsDimmer() const {return dimmer;}
 
 private:
     int id;
@@ -49,9 +56,11 @@ private:
     QString type;
     int methodsSupported;
     int lastSentCommand;
+    int value;
+    bool dimmer;
 };
 
 QDataStream &operator<<(QDataStream &out, const Device &device);
 QDataStream &operator>>(QDataStream &in, Device &device);
+#endif // DEVICE
 
-#endif // DEVICE_H

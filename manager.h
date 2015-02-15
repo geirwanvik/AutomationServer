@@ -23,8 +23,8 @@ public slots:
 
 private slots:
     void ProcessEvents(QStringList eventList);
-    void UpdateDevice(QStringList deviceData);
-    void UpdateSensor(QStringList sensorData);
+    void UpdateDevice(QList<int> param);
+    void UpdateSensor(QStringList param);
     void ProcessIncomingTelegram(QStringList telegram);
 
 private:

@@ -20,6 +20,16 @@ Sensor::Sensor(int id, QString &name, QString &protocol, QString &model, int dat
     this->value = value;
 }
 
+Sensor::Sensor(int id, QString &protocol, QString &model, int dataType, QString &value)
+{
+    this->id = id;
+    this->name = "Not Set";
+    this->protocol = protocol;
+    this->model = model;
+    this->dataType = dataType;
+    this->value = value;
+}
+
 Sensor::Sensor(const Sensor &other)
 {
     this->id = other.id;
@@ -33,6 +43,33 @@ Sensor::Sensor(const Sensor &other)
 Sensor::~Sensor()
 {
 
+}
+
+QString Sensor::GetDataTypeText()
+{
+    if(dataType == 1)
+    {
+        return "Temperature";
+    }
+    else if(dataType == 2)
+    {
+        return "Humidity";
+    }
+    return "Unknown";
+}
+
+QString Sensor::GetValue() const
+{
+
+    if(dataType == 1)
+    {
+        return (value + QString(" degC"));
+    }
+    else if(dataType == 2)
+    {
+        return value + (QString)(" %RH");
+    }
+    return value;
 }
 
 QDataStream &operator<<(QDataStream &out, const Sensor &sensor)

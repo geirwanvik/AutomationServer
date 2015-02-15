@@ -1,7 +1,10 @@
 #include "manager.h"
 
+
+
 Manager::Manager(QObject *parent) : QObject(parent)
 {
+    qRegisterMetaType< QList<int> >("QList<int>");
     QString msg;
     tDCore = new TelldusCoreAPI(this);
     tcpServer = new Server(this);
@@ -12,18 +15,9 @@ Manager::Manager(QObject *parent) : QObject(parent)
     connect(TelldusCore::Instance(),SIGNAL(RawDataEvent(QStringList)),this,SLOT(ProcessEvents(QStringList)));
 
     connect(TelldusCore::Instance(),SIGNAL(SensorEvent(QStringList)),this,SLOT(UpdateSensor(QStringList)));
-    connect(TelldusCore::Instance(),SIGNAL(DeviceEvent(QStringList)),this,SLOT(UpdateDevice(QStringList)));
+    connect(TelldusCore::Instance(),SIGNAL(DeviceEvent(QList<int>)),this,SLOT(UpdateDevice(QList<int>)));
 
     connect(tcpServer,SIGNAL(TelegramReceived(QStringList)),this,SLOT(ProcessIncomingTelegram(QStringList)));
-
-
-    tDCore->EnableDeviceChangeEvent();
-    tDCore->EnableControllerEvent();
-    tDCore->EnableRawDataEvent();
-
-    tDCore->EnableDeviceEvent();
-    tDCore->EnableSensorEvent();
-
 
     // TEST
     //int id, QString &name, QString &protocol, QString &model, QString &paramHouse, QString &paramUnit, QString &type, int methodsSupported, int lastSentCommand
@@ -34,7 +28,7 @@ Manager::Manager(QObject *parent) : QObject(parent)
     QString unit = "1";
     QString type = "receiver";
 
-    Device Stikk(100,name,protocol,model,house,unit,type,0,0);
+    Device Stikk(name,protocol,model,house,unit,type);
 
     name = "Dimmer";
     protocol = "arctech";
@@ -43,16 +37,16 @@ Manager::Manager(QObject *parent) : QObject(parent)
     unit = "1";
     type = "receiver";
 
-    Device Dimmer(101,name,protocol,model,house,unit,type,0,0);
+    Device Dimmer(name,protocol,model,house,unit,type);
 
     name = "Switch";
     protocol = "arctech";
     model = "selflearning-switch:nexa";
     house = "15327318";
     unit = "12";
-    type = "command";
+    type = "sender";
 
-    Device Switch(101,name,protocol,model,house,unit,type,0,0);
+    Device Switch(name,protocol,model,house,unit,type);
 
     deviceList.append(Stikk);
     deviceList.append(Dimmer);
@@ -106,18 +100,63 @@ void Manager::ProcessEvents(QStringList eventList)
     // Log if enabled
 
     // Forward raw events if client is looking for new switches and sensors
-    //qDebug() << eventList;
+    qDebug() << eventList;
 
 }
 
-void Manager::UpdateDevice(QStringList deviceData)
+void Manager::UpdateDevice(QList<int> param)
 {
-    qDebug() << "DeviceEvent" << deviceData;
+    foreach(Device dev, deviceList)
+    {
+        int id = dev.GetId();
+
+        if(id == param.at(0))
+        {
+            dev.SetLastCommandSent(param.at(1));
+            if(dev.IsDimmer())
+            {
+                dev.SetValue(param.at(2));
+            }
+
+            // Emit device changed
+            qDebug() << "Device " << dev.GetName() << ", Id " << QString::number(dev.GetId())
+                     << ", type " << dev.GetType() << " is now " << (QString)dev.GetLastCommandSent();
+            return;
+        }
+    }
 }
 
-void Manager::UpdateSensor(QStringList sensorData)
+void Manager::UpdateSensor(QStringList param)
 {
-    qDebug() << "SensorEvent" << sensorData;
+    // if id in ignore list, return
+
+    foreach(Sensor sens, sensorList)
+    {
+        int id = sens.GetId();
+        int dataType = sens.GetDataType();
+
+        if(id == param.at(0).toInt() && dataType == param.at(1).toInt())
+        {
+            sens.SetValue(param.at(2));
+            // Emit sensor changed
+            qDebug() << "Sensor " << sens.GetName() << ", Id " << QString::number(sens.GetId())
+                     << ", type " << sens.GetDataTypeText() << " is now " << sens.GetValue();
+            return;
+        }
+    }
+
+    // Else new sensor discovered
+    int id = param.at(0).toInt();
+    int dataType = param.at(1).toInt();
+    QString value = param.at(2);
+    QString protocol = param.at(3);
+    QString model = param.at(4);
+
+    Sensor sens(id,protocol,model,dataType,value);
+    sensorList.append(sens);
+    // Emit new sensor found
+    qDebug() << "Found Sensor id " << QString::number(id) << "model " << model;
+
 }
 
 void Manager::ProcessIncomingTelegram(QStringList telegram)

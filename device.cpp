@@ -11,9 +11,12 @@ Device::Device()
     this->type = "Not Set";
     this->methodsSupported = 0;
     this->lastSentCommand = 0;
+    this->value = 0;
+    this->dimmer = false;
 }
 
-Device::Device(int id, QString &name, QString &protocol, QString &model, QString &paramHouse, QString &paramUnit, QString &type, int methodsSupported, int lastSentCommand)
+Device::Device(int id, QString &name, QString &protocol, QString &model, QString &paramHouse, QString &paramUnit,
+               QString &type, int methodsSupported, int lastSentCommand, int value)
 {
     this->id = id;
     this->name = name;
@@ -24,6 +27,24 @@ Device::Device(int id, QString &name, QString &protocol, QString &model, QString
     this->type = type;
     this->methodsSupported = methodsSupported;
     this->lastSentCommand = lastSentCommand;
+    this->value = value;
+    this->dimmer = dimmer;
+}
+
+Device::Device(QString &name, QString &protocol, QString &model, QString &paramHouse, QString &paramUnit,
+               QString &type)
+{
+    this->id = 0;
+    this->name = name;
+    this->protocol = protocol;
+    this->model = model;
+    this->paramHouse = paramHouse;
+    this->paramUnit = paramUnit;
+    this->type = type;
+    this->methodsSupported = 0;
+    this->lastSentCommand = 0;
+    this->value = 0;
+    this->dimmer = false;
 }
 
 Device::Device(const Device &other)
@@ -37,11 +58,27 @@ Device::Device(const Device &other)
     this->type = other.type;
     this->methodsSupported = other.methodsSupported;
     this->lastSentCommand = other.lastSentCommand;
+    this->value = other.value;
+    this->dimmer = other.dimmer;
 }
 
 Device::~Device()
 {
 
+}
+
+QString Device::GetLastCommandSent()
+{
+    QString msg;
+    if(lastSentCommand == 1)
+    {
+        msg = "On";
+    }
+    else if(lastSentCommand == 2)
+    {
+        msg = "Off";
+    }
+    return msg;
 }
 
 QDataStream &operator<<(QDataStream &out, const Device &device)
@@ -54,7 +91,8 @@ QDataStream &operator<<(QDataStream &out, const Device &device)
         << device.GetParamUnit()
         << device.GetType()
         << device.GetMethodsSupported()
-        << device.GetLastCommandSent();
+        << device.GetLastCommandSent()
+        << device.GetValue();
 
     return out;
 }
@@ -70,6 +108,7 @@ QDataStream &operator>>(QDataStream &in, Device &device)
     QString type;
     int methodsSupported;
     int lastSentCommand;
+    int value;
 
     in >> id
        >> name
@@ -79,8 +118,10 @@ QDataStream &operator>>(QDataStream &in, Device &device)
        >> paramUnit
        >> type
        >> methodsSupported
-       >> lastSentCommand;
-    device = Device(id,name,protocol,model,paramHouse,paramUnit,type,methodsSupported,lastSentCommand);
+       >> lastSentCommand
+       >> value;
+
+    device = Device(id,name,protocol,model,paramHouse,paramUnit,type,methodsSupported,lastSentCommand,value);
     return in;
 }
 

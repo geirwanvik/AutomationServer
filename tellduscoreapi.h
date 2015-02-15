@@ -18,25 +18,16 @@ public:
     QString ClearAllDevicesInCore();
     QString RegisterNewDevice(Device &dev);
 
-    void EnableRawDataEvent(void);
-    void DisableRawDataEvent(void);
-    void EnableSensorEvent(void);
-    void DisableSensorEvent(void);
-    void EnableDeviceEvent(void);
-    void DisableDeviceEvent(void);
-    void EnableDeviceChangeEvent(void);
-    void DisableDeviceChangeEvent(void);
-    void EnableControllerEvent(void);
-    void DisableControllerEvent(void);
-
     QString DeviceTurnOn(Device &dev);
     QString DeviceTurnOff(Device &dev);
+    QString DeviceDim(Device &dev);
+    QString DeviceCommand(int id, int method, int value);
 
 signals:
     void RawDataEvent(QStringList param);
     void ControllerEvent(QStringList param);
     void SensorEvent(QStringList param);
-    void DeviceEvent(QStringList param);
+    void DeviceEvent(QList<int> param);
     void DeviceChangeEvent(QStringList param);
 
 

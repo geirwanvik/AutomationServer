@@ -8,6 +8,7 @@ class Sensor
 public:
     Sensor();
     Sensor(int id, QString &name, QString &protocol, QString &model, int dataType, QString &value);
+    Sensor(int id, QString &protocol, QString &model, int dataType, QString &value);
     Sensor(const Sensor &other);
 
     ~Sensor();
@@ -24,11 +25,12 @@ public:
     void SetModel(const QString &model) {this->model = model;}
     QString GetModel() const {return model;}
 
-    void GetDataType(const int &dataType) {this->dataType = dataType;}
+    void SetDataType(const int &dataType) {this->dataType = dataType;}
     int GetDataType() const {return dataType;}
+    QString GetDataTypeText();
 
     void SetValue(const QString &value) {this->value = value;}
-    QString GetValue() const {return value;}
+    QString GetValue() const;
 
 private:
     int id;
