@@ -22,12 +22,16 @@ signals:
 public slots:
 
 private slots:
-    void ProcessEvents(QStringList eventList);
-    void UpdateDevice(QList<int> param);
-    void UpdateSensor(QStringList param);
+    void RawEvent(QStringList eventList);
+    void DeviceEvent(QList<int> param);
+    void SensorEvent(QStringList param);
+    void ProcessDeviceEvents(Device &dev);
+    void ProcessSensorEvents(Sensor &sens);
     void ProcessIncomingTelegram(QStringList telegram);
 
 private:
+
+
     QList<Device> deviceList;
     QList<Sensor> sensorList;
     TelldusCoreAPI *tDCore;
@@ -35,6 +39,8 @@ private:
 
     QString SaveConfig(void);
     QString LoadConfig(void);
+    QString SaveSchedule(void);
+    QString LoadSchedule(void);
 
 };
 

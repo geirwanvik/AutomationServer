@@ -1,7 +1,5 @@
 #include "manager.h"
 
-
-
 Manager::Manager(QObject *parent) : QObject(parent)
 {
     qRegisterMetaType< QList<int> >("QList<int>");
@@ -10,12 +8,12 @@ Manager::Manager(QObject *parent) : QObject(parent)
     tcpServer = new Server(this);
 
     // Singleton instance of TelldusCoreAPI to forward events from the static callback functions
-    connect(TelldusCore::Instance(),SIGNAL(DeviceChangeEvent(QStringList)),this,SLOT(ProcessEvents(QStringList)));
-    connect(TelldusCore::Instance(),SIGNAL(ControllerEvent(QStringList)),this,SLOT(ProcessEvents(QStringList)));
-    connect(TelldusCore::Instance(),SIGNAL(RawDataEvent(QStringList)),this,SLOT(ProcessEvents(QStringList)));
+    connect(TelldusCore::Instance(),SIGNAL(DeviceChangeEvent(QStringList)),this,SLOT(RawEvent(QStringList)));
+    connect(TelldusCore::Instance(),SIGNAL(ControllerEvent(QStringList)),this,SLOT(RawEvent(QStringList)));
+    connect(TelldusCore::Instance(),SIGNAL(RawDataEvent(QStringList)),this,SLOT(RawEvent(QStringList)));
 
-    connect(TelldusCore::Instance(),SIGNAL(SensorEvent(QStringList)),this,SLOT(UpdateSensor(QStringList)));
-    connect(TelldusCore::Instance(),SIGNAL(DeviceEvent(QList<int>)),this,SLOT(UpdateDevice(QList<int>)));
+    connect(TelldusCore::Instance(),SIGNAL(SensorEvent(QStringList)),this,SLOT(SensorEvent(QStringList)));
+    connect(TelldusCore::Instance(),SIGNAL(DeviceEvent(QList<int>)),this,SLOT(DeviceEvent(QList<int>)));
 
     connect(tcpServer,SIGNAL(TelegramReceived(QStringList)),this,SLOT(ProcessIncomingTelegram(QStringList)));
 
@@ -95,7 +93,7 @@ Manager::~Manager()
 
 }
 
-void Manager::ProcessEvents(QStringList eventList)
+void Manager::RawEvent(QStringList eventList)
 {
     // Log if enabled
 
@@ -104,7 +102,7 @@ void Manager::ProcessEvents(QStringList eventList)
 
 }
 
-void Manager::UpdateDevice(QList<int> param)
+void Manager::DeviceEvent(QList<int> param)
 {
     foreach(Device dev, deviceList)
     {
@@ -118,15 +116,15 @@ void Manager::UpdateDevice(QList<int> param)
                 dev.SetValue(param.at(2));
             }
 
-            // Emit device changed
             qDebug() << "Device " << dev.GetName() << ", Id " << QString::number(dev.GetId())
                      << ", type " << dev.GetType() << " is now " << (QString)dev.GetLastCommandSent();
+            ProcessDeviceEvents(dev);
             return;
         }
     }
 }
 
-void Manager::UpdateSensor(QStringList param)
+void Manager::SensorEvent(QStringList param)
 {
     // if id in ignore list, return
 
@@ -141,6 +139,7 @@ void Manager::UpdateSensor(QStringList param)
             // Emit sensor changed
             qDebug() << "Sensor " << sens.GetName() << ", Id " << QString::number(sens.GetId())
                      << ", type " << sens.GetDataTypeText() << " is now " << sens.GetValue();
+            ProcessSensorEvents(sens);
             return;
         }
     }
@@ -156,6 +155,16 @@ void Manager::UpdateSensor(QStringList param)
     sensorList.append(sens);
     // Emit new sensor found
     qDebug() << "Found Sensor id " << QString::number(id) << "model " << model;
+
+}
+
+void Manager::ProcessDeviceEvents(Device &dev)
+{
+
+}
+
+void Manager::ProcessSensorEvents(Sensor &sens)
+{
 
 }
 
@@ -212,4 +221,24 @@ QString Manager::LoadConfig()
 
     file.close();
     return ("Success");
+}
+
+/*
+ * master,id:,param:,value:,condition:,slave,id:,param:,value:,slave,id:,param:,value:,slave,id:,param:,value:
+ * master,id:,param:,value:,condition:,slave,id:,param:,value:,slave,id:,param:,value:,slave,id:,param:,value:
+ * master,id:,param:,value:,condition:,slave,id:,param:,value:,slave,id:,param:,value:,slave,id:,param:,value:
+ * master,id:,param:,value:,condition:,slave,id:,param:,value:,slave,id:,param:,value:,slave,id:,param:,value:
+*/
+
+QString Manager::SaveSchedule()
+{
+
+}
+
+QString Manager::LoadSchedule()
+{
+    QString testStringOn = "master,id:3,param:12,value:1,condition:=,slave,id:1,param:1,value:,slave,id:2,param:16,value:50";
+    QString testStringOff = "master,id:3,param:12,value:2,condition:=,slave,id:1,param:2,value:,slave,id:2,param:16,value:0";
+    QStringList list;
+    list << testStringOn << testStringOff;
 }
