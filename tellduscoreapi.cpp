@@ -18,10 +18,6 @@ TelldusCoreAPI::~TelldusCoreAPI()
     tdClose();
 }
 
-int TelldusCoreAPI::GetNumberOfDevicesInCore()
-{
-    return (tdGetNumberOfDevices());
-}
 
 QString TelldusCoreAPI::ClearAllDevicesInCore()
 {
@@ -62,16 +58,16 @@ QString TelldusCoreAPI::ClearAllDevicesInCore()
     return returnMsg;
 }
 
-QString TelldusCoreAPI::RegisterNewDevice(Device &dev)
+QString TelldusCoreAPI::RegisterNewDevice(Devices &dev)
 {
     bool success;
     QString returnMsg;
 
     // Get the device id from telldusd
     int id = tdAddDevice();
-    if(id < 0)
+    if(id < 0) // If error, the error code is returned as the device id, negative number
     {
-        return ("Failed to create new device, error code " + id);
+        return ErrorCode(-1,id);
     }
     dev.SetId(id);
 
@@ -98,7 +94,7 @@ QString TelldusCoreAPI::RegisterNewDevice(Device &dev)
     // If the model is bell, house parameter must be set.
     if(dev.GetModel().startsWith("bell"))
     {
-        success = tdSetDeviceParameter(id,"house",dev.GetParamHouse().toUtf8().constData());
+        success = tdSetDeviceParameter(id,"house",dev.GetHouse().toUtf8().constData());
         if(!success)
         {
             returnMsg.append("Failed to set param:house.");
@@ -107,31 +103,22 @@ QString TelldusCoreAPI::RegisterNewDevice(Device &dev)
     }
     else if(dev.GetModel().startsWith("codeswitch") || dev.GetModel().startsWith("selflearning-switch"))
     {
-        success = tdSetDeviceParameter(id,"house",dev.GetParamHouse().toUtf8().constData());
+        success = tdSetDeviceParameter(id,"house",dev.GetHouse().toUtf8().constData());
         if(!success)
         {
             returnMsg.append("Failed to set param:house.");
         }
-        success = tdSetDeviceParameter(id,"unit",dev.GetParamUnit().toUtf8().constData());
+        success = tdSetDeviceParameter(id,"unit",dev.GetUnit().toUtf8().constData());
         if(!success)
         {
             returnMsg.append("Failed to set param:unit.");
         }
     }
 
-    int methods = tdMethods(id, 1023);
-    dev.SetMethodsSupported(methods); // Check for all supported methods, all 10 bits
-    dev.SetLastCommandSent(tdLastSentCommand(id,methods));
-    if(methods & TELLSTICK_DIM)
-    {
-        dev.SetIsDimmer(true);
-    }
-    else
-    {
-        dev.SetIsDimmer(false);
-    }
+    int supportedCommands = tdMethods(id, TurnOn | TurnOff | Bell | Toggle | Dim | Learn | Execute | Up | Down | Stop);
+    dev.SetSupportedCommands(supportedCommands);
 
-
+    dev.SetLastCommand(tdLastSentCommand(id,supportedCommands));
 
     if(returnMsg.isEmpty())
     {
@@ -139,74 +126,142 @@ QString TelldusCoreAPI::RegisterNewDevice(Device &dev)
     }
     return returnMsg;
 }
+/*
+ * (int id, QString &name, QString &protocol, QString &model, QString &house, QString &unit,
+            QString &type, int supportedCommands,int lastCommand, int lastValue);
+            */
 
-QString TelldusCoreAPI::DeviceTurnOn(Device &dev)
+QList<Devices> TelldusCoreAPI::LookForSensors()
 {
-    bool success;
-    int id = dev.GetId();
-    int methods = dev.GetMethodsSupported();
-    if(methods & TELLSTICK_TURNON)
+    QList<Devices> deviceList;
+    char protocol[DATA_LENGTH], model[DATA_LENGTH];
+    int id = 0, dataTypes = 0;
+    while(tdSensor(protocol,DATA_LENGTH,model,DATA_LENGTH,&id,&dataTypes) == TELLSTICK_SUCCESS)
     {
-        success = tdTurnOn(id);
+        QString unknownParam = "not set";
+        QString myProtocol = QString::fromLocal8Bit(protocol);
+        QString myModel = QString::fromLocal8Bit(model);
+        QString myType = "sensor";
+        Devices dev(id,unknownParam,myProtocol,myModel,
+                    unknownParam, unknownParam, myType, dataTypes, 0, 0);
+        deviceList.append(dev);
+        qDebug() << "Found device id " << id;
     }
-    if(!success)
-    {
-        return "Failed";
-    }
-    return "Success";
+    return deviceList;
 }
 
-QString TelldusCoreAPI::DeviceTurnOff(Device &dev)
+
+QString TelldusCoreAPI::DeviceCommand(int id, int command, int value)
 {
-    bool success;
-    int id = dev.GetId();
-    int methods = dev.GetMethodsSupported();
-    if(methods & TELLSTICK_TURNOFF)
+    int success;
+    char dimmerValue = value;
+    int returnMethod = tdMethods(id,command);
+    qDebug() << QString::number(returnMethod);
+    if(returnMethod == command)
     {
-        success = tdTurnOn(id);
+        if(command == TELLSTICK_TURNON)
+        {
+            success = tdTurnOn(id);
+        }
+        else if(command == TELLSTICK_TURNOFF)
+        {
+            success = tdTurnOff(id);
+        }
+        else if(command == TELLSTICK_BELL)
+        {
+            success = tdBell(id);
+        }
+        else if(command == TELLSTICK_TOGGLE) // Not implemented by Telldus
+        {
+            return tr("Error : Device id %1 does not support command %2").arg(id).arg(command);
+        }
+        else if(command == TELLSTICK_DIM)
+        {
+            success = tdDim(id,dimmerValue);
+        }
+        else if(command == TELLSTICK_LEARN)
+        {
+            success = tdLearn(id);
+        }
+        else if(command == TELLSTICK_EXECUTE)
+        {
+            success = tdExecute(id);
+        }
+        else if(command == TELLSTICK_UP)
+        {
+            success = tdUp(id);
+        }
+        else if(command == TELLSTICK_DOWN)
+        {
+            success = tdDown(id);
+        }
+        else if(command == TELLSTICK_STOP)
+        {
+            success = tdStop(id);
+        }
+
+        if(success != 0)
+        {
+            return ErrorCode(id,success);
+        }
+        else
+        {
+            return "Success";
+        }
     }
-    if(!success)
+    else
     {
-        return "Failed";
+        return tr("Error : Device id %1 does not support command %2").arg(id).arg(command);
     }
-    return "Success";
 }
 
-QString TelldusCoreAPI::DeviceDim(Device &dev)
+QString TelldusCoreAPI::ErrorCode(int id, int code)
 {
-    bool success;
-    int id = dev.GetId();
-    int methods = dev.GetMethodsSupported();
-    if(methods & TELLSTICK_DIM)
+    if(code == TELLSTICK_ERROR_NOT_FOUND)
     {
-        success = tdDim(id,dev.GetValue());
+        return tr("Error : Device id %1 Tellstick not found").arg(id);
     }
-    if(!success)
+    if(code == TELLSTICK_ERROR_PERMISSION_DENIED)
     {
-        return "Failed";
+        return tr("Error : Device id %1 TellStick permission denied").arg(id);
     }
-    return "Success";
-}
-
-QString TelldusCoreAPI::DeviceCommand(int id, int method, int value)
-{
-    bool success;
-    int returnMethod = tdMethods(id,method);
-    if(returnMethod == method)
+    if(code == TELLSTICK_ERROR_DEVICE_NOT_FOUND)
     {
-        if(method == TELLSTICK_TURNON)
-        {
-            tdTurnOn(id);
-        }
-        else if(method == TELLSTICK_TURNOFF)
-        {
-            tdTurnOff(id);
-        }
-        else if(method == TELLSTICK_DIM)
-        {
-            tdDim(id,(QString::number(value).constData()->toLatin1()));
-        }
+        return tr("Error : Device id %1 Device not found").arg(id);
     }
+    if(code == TELLSTICK_ERROR_METHOD_NOT_SUPPORTED)
+    {
+        return tr("Error : Device id %1 The method is not supported by the device.").arg(id);
+    }
+    if(code == TELLSTICK_ERROR_COMMUNICATION)
+    {
+        return tr("Error : Device id %1 Error when communicating with TellStick").arg(id);
+    }
+    if(code == TELLSTICK_ERROR_CONNECTING_SERVICE)
+    {
+        return tr("Error : Device id %1 The client library could not connect to the service").arg(id);
+    }
+    if(code == TELLSTICK_ERROR_UNKNOWN_RESPONSE)
+    {
+        return tr("Error : Device id %1 The client library received a response from the service it did not understand").arg(id);
+    }
+    if(code == TELLSTICK_ERROR_SYNTAX)
+    {
+        return tr("Error : Device id %1 Input/command could not be parsed or didn't follow input rules").arg(id);
+    }
+    if(code == TELLSTICK_ERROR_BROKEN_PIPE)
+    {
+        return tr("Error : Device id %1 Pipe broken during communication").arg(id);
+    }
+    if(code == TELLSTICK_ERROR_COMMUNICATING_SERVICE)
+    {
+        return tr("Error : Device id %1 Timeout waiting for response from the Telldus Service").arg(id);
+    }
+    if(code == TELLSTICK_ERROR_UNKNOWN)
+    {
+        return tr("Error : Device id %1 An unknown error has occurred").arg(id);
+    }
+    return "";
 }
 
 
@@ -231,24 +286,12 @@ void WINAPI TelldusCoreAPI::RawDataEventCallback(const char *data, int controlle
 
 void WINAPI TelldusCoreAPI::DeviceEventCallback(int deviceId, int method, const char *data, int, void*)
 {
-    QList<int> eventInfo;
-    eventInfo << deviceId;
-    eventInfo << method;
-    eventInfo << QString::fromLocal8Bit(data).toInt();
-
-    TelldusCore::Instance()->DeviceEvent(eventInfo);
+    TelldusCore::Instance()->DeviceEvent(deviceId,method,data);
 }
 
 void WINAPI TelldusCoreAPI::SensorEventCallback(const char *protocol, const char *model, int sensorId, int dataType, const char *value, int, int, void*)
 {
-    QStringList eventInfo;
-    eventInfo << QString::number(sensorId);
-    eventInfo << QString::number(dataType);
-    eventInfo << QString::fromLocal8Bit(value);
-    eventInfo << QString::fromLocal8Bit(protocol);
-    eventInfo << QString::fromLocal8Bit(model);
-
-    TelldusCore::Instance()->SensorEvent(eventInfo);
+    TelldusCore::Instance()->SensorEvent(protocol, model, sensorId, dataType, value);
 }
 
 void WINAPI TelldusCoreAPI::DeviceChangeEventCallback(int deviceId, int changeEvent, int changeType, int, void*)

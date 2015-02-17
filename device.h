@@ -1,16 +1,18 @@
-#ifndef DEVICE
-#define DEVICE
+#ifndef DEVICES
+#define DEVICES
 
 #include <QtCore>
 
-class Device
+class Devices
 {
 public:
-    Device();
-    Device(int id, QString &name, QString &protocol, QString &model, QString &paramHouse, QString &paramUnit, QString &type, int methodsSupported,int lastSentCommand, int value);
-    Device(QString &name, QString &protocol, QString &model, QString &paramHouse, QString &paramUnit,QString &type);
-    Device(const Device &other);
-    ~Device();
+
+    Devices();
+    Devices(int id, QString &name, QString &protocol, QString &model, QString &house, QString &unit,
+            QString &type, int supportedCommands,int lastCommand, int lastValue);
+    Devices(QString &name, QString &protocol, QString &model, QString &house, QString &unit,QString &type);
+    Devices(const Devices &other);
+    ~Devices();
 
     void SetId(const int &id) {this->id = id;}
     int GetId() const {return id;}
@@ -24,43 +26,43 @@ public:
     void SetModel(const QString &model) {this->model = model;}
     QString GetModel() const {return model;}
 
-    void SetParamHouse(const QString &paramHouse) {this->paramHouse = paramHouse;}
-    QString GetParamHouse() const {return paramHouse;}
+    void SetHouse(const QString &house) {this->house = house;}
+    QString GetHouse() const {return house;}
 
-    void SetParamUnit(const QString &paramUnit) {this->paramUnit = paramUnit;}
-    QString GetParamUnit() const {return paramUnit;}
+    void SetUnit(const QString &unit) {this->unit = unit;}
+    QString GetUnit() const {return unit;}
 
     void SetType(const QString &type) {this->type = type;}
     QString GetType() const {return type;}
 
-    void SetMethodsSupported(const int &methodsSupported) {this->methodsSupported = methodsSupported;}
-    int GetMethodsSupported() const {return methodsSupported;}
+    void SetSupportedCommands(const int &methodsSupported) {this->supportedCommands = methodsSupported;}
+    int GetSupportedCommands() const {return supportedCommands;}
 
-    void SetLastCommandSent(const int &lastSentCommand) {this->lastSentCommand = lastSentCommand;}
-    int GetLastCommandSent() const {return lastSentCommand;}
-    QString GetLastCommandSent();
+    void SetLastCommand(const int &lastSentCommand) {this->lastCommand = lastSentCommand;}
+    int GetLastCommand() const {return lastCommand;}
+    QString GetLastCommand();
 
-    void SetValue(const int &value) {this->value = value;}
-    int GetValue() const {return value;}
+    void SetLastValue(const int &value) {this->lastValue = value;}
+    int GetLastValue() const {return lastValue;}
 
-    void SetIsDimmer(const bool &dimmer) {this->dimmer = dimmer;}
-    bool IsDimmer() const {return dimmer;}
 
 private:
+
+
     int id;
     QString name;
     QString protocol;
     QString model;
-    QString paramHouse;
-    QString paramUnit;
+    QString house;
+    QString unit;
     QString type;
-    int methodsSupported;
-    int lastSentCommand;
-    int value;
-    bool dimmer;
+    int supportedCommands;
+    int lastCommand;
+    int lastValue;
 };
 
-QDataStream &operator<<(QDataStream &out, const Device &device);
-QDataStream &operator>>(QDataStream &in, Device &device);
+
+QDataStream &operator<<(QDataStream &out, const Devices &device);
+QDataStream &operator>>(QDataStream &in, Devices &device);
 #endif // DEVICE
 

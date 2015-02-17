@@ -18,15 +18,13 @@ SOURCES += main.cpp \
     tellduscoreapi.cpp \
     server.cpp \
     device.cpp \
-    manager.cpp \
-    sensor.cpp
+    manager.cpp
 
 HEADERS += \
     tellduscoreapi.h \
     server.h \
     manager.h \
     singleton.h \
-    sensor.h \
     device.h
 
 LIBS    += "/usr/local/lib/libtelldus-core.so"

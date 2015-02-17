@@ -1,127 +1,124 @@
 #include "device.h"
 
-Device::Device()
+Devices::Devices()
 {
     this->id = 0;
     this->name = "Not Set";
     this->protocol = "Not Set";
     this->model = "Not Set";
-    this->paramHouse = "Not Set";
-    this->paramUnit = "Not Set";
+    this->house = "Not Set";
+    this->unit = "Not Set";
     this->type = "Not Set";
-    this->methodsSupported = 0;
-    this->lastSentCommand = 0;
-    this->value = 0;
-    this->dimmer = false;
+    this->supportedCommands = 0;
+    this->lastCommand = 0;
+    this->lastValue = 0;
 }
 
-Device::Device(int id, QString &name, QString &protocol, QString &model, QString &paramHouse, QString &paramUnit,
-               QString &type, int methodsSupported, int lastSentCommand, int value)
+Devices::Devices(int id, QString &name, QString &protocol, QString &model, QString &house, QString &unit,
+               QString &type, int supportedCommands, int lastCommand, int value)
 {
     this->id = id;
     this->name = name;
     this->protocol = protocol;
     this->model = model;
-    this->paramHouse = paramHouse;
-    this->paramUnit = paramUnit;
+    this->house = house;
+    this->unit = unit;
     this->type = type;
-    this->methodsSupported = methodsSupported;
-    this->lastSentCommand = lastSentCommand;
-    this->value = value;
-    this->dimmer = dimmer;
+    this->supportedCommands = supportedCommands;
+    this->lastCommand = lastCommand;
+    this->lastValue = value;
 }
 
-Device::Device(QString &name, QString &protocol, QString &model, QString &paramHouse, QString &paramUnit,
+Devices::Devices(QString &name, QString &protocol, QString &model, QString &paramHouse, QString &paramUnit,
                QString &type)
 {
     this->id = 0;
     this->name = name;
     this->protocol = protocol;
     this->model = model;
-    this->paramHouse = paramHouse;
-    this->paramUnit = paramUnit;
+    this->house = paramHouse;
+    this->unit = paramUnit;
     this->type = type;
-    this->methodsSupported = 0;
-    this->lastSentCommand = 0;
-    this->value = 0;
-    this->dimmer = false;
+    this->supportedCommands = 0;
+    this->lastCommand = 0;
+    this->lastValue = 0;
 }
 
-Device::Device(const Device &other)
+Devices::Devices(const Devices &other)
 {
     this->id = other.id;
     this->name = other.name;
     this->protocol = other.protocol;
     this->model = other.model;
-    this->paramHouse = other.paramHouse;
-    this->paramUnit = other.paramUnit;
+    this->house = other.house;
+    this->unit = other.unit;
     this->type = other.type;
-    this->methodsSupported = other.methodsSupported;
-    this->lastSentCommand = other.lastSentCommand;
-    this->value = other.value;
-    this->dimmer = other.dimmer;
+    this->supportedCommands = other.supportedCommands;
+    this->lastCommand = other.lastCommand;
+    this->lastValue = other.lastValue;
 }
 
-Device::~Device()
+Devices::~Devices()
 {
 
 }
 
-QString Device::GetLastCommandSent()
+QString Devices::GetLastCommand()
 {
     QString msg;
-    if(lastSentCommand == 1)
+    if(lastCommand == 1)
     {
         msg = "On";
     }
-    else if(lastSentCommand == 2)
+    else if(lastCommand == 2)
     {
         msg = "Off";
     }
     return msg;
 }
 
-QDataStream &operator<<(QDataStream &out, const Device &device)
+
+QDataStream &operator<<(QDataStream &out, const Devices &device)
 {
     out << device.GetId()
         << device.GetName()
         << device.GetProtocol()
         << device.GetModel()
-        << device.GetParamHouse()
-        << device.GetParamUnit()
+        << device.GetHouse()
+        << device.GetUnit()
         << device.GetType()
-        << device.GetMethodsSupported()
-        << device.GetLastCommandSent()
-        << device.GetValue();
+        << device.GetSupportedCommands()
+        << device.GetLastCommand()
+        << device.GetLastValue();
 
     return out;
 }
 
-QDataStream &operator>>(QDataStream &in, Device &device)
+QDataStream &operator>>(QDataStream &in, Devices &device)
 {
     int id;
     QString name;
     QString protocol;
     QString model;
-    QString paramHouse;
-    QString paramUnit;
+    QString house;
+    QString unit;
     QString type;
-    int methodsSupported;
-    int lastSentCommand;
+    int supportedCommands;
+    int lastCommand;
     int value;
 
     in >> id
        >> name
        >> protocol
        >> model
-       >> paramHouse
-       >> paramUnit
+       >> house
+       >> unit
        >> type
-       >> methodsSupported
-       >> lastSentCommand
+       >> supportedCommands
+       >> lastCommand
        >> value;
 
-    device = Device(id,name,protocol,model,paramHouse,paramUnit,type,methodsSupported,lastSentCommand,value);
+    device = Devices(id,name,protocol,model,house,unit,type,supportedCommands,lastCommand,value);
     return in;
 }
 

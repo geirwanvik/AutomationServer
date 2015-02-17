@@ -6,7 +6,6 @@
 #include <QFile>
 
 #include "device.h"
-#include "sensor.h"
 #include "tellduscoreapi.h"
 #include "server.h"
 
@@ -17,23 +16,20 @@ public:
     explicit Manager(QObject *parent = 0);
     ~Manager();
 
+
 signals:
 
 public slots:
 
 private slots:
     void RawEvent(QStringList eventList);
-    void DeviceEvent(QList<int> param);
-    void SensorEvent(QStringList param);
-    void ProcessDeviceEvents(Device &dev);
-    void ProcessSensorEvents(Sensor &sens);
+    void DeviceEvent(int eventId, int eventCommand, const char *eventData);
     void ProcessIncomingTelegram(QStringList telegram);
 
 private:
 
 
-    QList<Device> deviceList;
-    QList<Sensor> sensorList;
+    QList<Devices> deviceList;
     TelldusCoreAPI *tDCore;
     Server *tcpServer;
 

@@ -14,20 +14,34 @@ public:
     explicit TelldusCoreAPI(QObject *parent = 0);
     ~TelldusCoreAPI();
 
-    int GetNumberOfDevicesInCore();
-    QString ClearAllDevicesInCore();
-    QString RegisterNewDevice(Device &dev);
+    enum CommandTypes
+    {
+        TurnOn = 1,
+        TurnOff = 2,
+        Bell = 4,
+        Toggle = 8,
+        Dim = 16,
+        Learn = 32,
+        Execute = 64,
+        Up = 128,
+        Down = 256,
+        Stop = 512
+    };
 
-    QString DeviceTurnOn(Device &dev);
-    QString DeviceTurnOff(Device &dev);
-    QString DeviceDim(Device &dev);
-    QString DeviceCommand(int id, int method, int value);
+    QString ClearAllDevicesInCore();
+    QString RegisterNewDevice(Devices &dev);
+    QList<Devices> LookForSensors(void);
+
+    QString RegisterNewSensor(Devices &dev);
+    QString DeviceCommand(int id, int command, int value);
+
+
 
 signals:
     void RawDataEvent(QStringList param);
     void ControllerEvent(QStringList param);
-    void SensorEvent(QStringList param);
-    void DeviceEvent(QList<int> param);
+    void SensorEvent(const char *protocol, const char *model, int id, int dataType, const char *value);
+    void DeviceEvent(int id, int command, const char *data);
     void DeviceChangeEvent(QStringList param);
 
 
@@ -38,6 +52,9 @@ public slots:
 
 
 private:
+
+    QString ErrorCode(int id, int code);
+
     static void WINAPI RawDataEventCallback(const char *data, int controllerId, int, void *);
     static void WINAPI ControllerEventCallback(int controllerId, int changeEvent, int changeType, const char *newValue, int callbackId, void *);
     static void WINAPI SensorEventCallback(const char *protocol, const char *model, int sensorId, int dataType, const char *value, int, int, void *);
