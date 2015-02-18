@@ -9,6 +9,7 @@ int main(int argc, char *argv[])
 
     Manager manager;
 
+
     return a.exec();
 }
 

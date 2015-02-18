@@ -23,16 +23,16 @@ signals:
 public slots:
 
 private slots:
-    void RawEvent(QStringList eventList);
-    void DeviceEvent(int eventId, int eventCommand, const char *eventData);
+    void DeviceEvent(int eventId, int eventCommand, int eventData, QString type);
     void ProcessIncomingTelegram(QStringList telegram);
+    void AboutToQuit();
 
 private:
 
 
     QList<Devices> deviceList;
     QList<DataBaseItem*> schedulerList;
-    TelldusCoreAPI *tDCore;
+    TelldusCoreAPI *telldusCore;
     Server *tcpServer;
 
     QString SaveConfig(void);

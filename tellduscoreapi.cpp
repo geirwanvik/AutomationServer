@@ -62,6 +62,10 @@ QString TelldusCoreAPI::RegisterNewDevice(Devices &dev)
 {
     bool success;
     QString returnMsg;
+    if(dev.GetType() == "sensor")
+    {
+        return "Failed, not a device";
+    }
 
     // Get the device id from telldusd
     int id = tdAddDevice();
@@ -127,25 +131,23 @@ QString TelldusCoreAPI::RegisterNewDevice(Devices &dev)
     return returnMsg;
 }
 
-QList<Devices> TelldusCoreAPI::LookForSensors()
+QString TelldusCoreAPI::RegisterNewSensor(Devices &dev)
 {
-    QList<Devices> deviceList;
-    char protocol[DATA_LENGTH], model[DATA_LENGTH];
-    int id = 0, dataTypes = 0;
-    while(tdSensor(protocol,DATA_LENGTH,model,DATA_LENGTH,&id,&dataTypes) == TELLSTICK_SUCCESS)
-    {
-        QString unknownParam = "not set";
-        QString myProtocol = QString::fromLocal8Bit(protocol);
-        QString myModel = QString::fromLocal8Bit(model);
-        QString myType = "sensor";
-        Devices dev(id,unknownParam,myProtocol,myModel,
-                    unknownParam, unknownParam, myType, dataTypes, 0, 0);
-        deviceList.append(dev);
-        qDebug() << "Found device id " << id;
-    }
-    return deviceList;
-}
 
+    char protocol[DATA_LENGTH], model[DATA_LENGTH];
+    int sensorId = 0, dataTypes = 0;
+    while(tdSensor(protocol, DATA_LENGTH, model, DATA_LENGTH, &sensorId, &dataTypes) == TELLSTICK_SUCCESS)
+    {
+        if(sensorId == dev.GetId())
+        {
+            dev.SetProtocol(QString::fromLocal8Bit(protocol));
+            dev.SetModel(QString::fromLocal8Bit(model));
+            dev.SetType("sensor");
+            return "Success";
+        }
+    }
+    return "Failed";
+}
 
 QString TelldusCoreAPI::DeviceCommand(int id, int command, int value)
 {
@@ -259,26 +261,6 @@ QString TelldusCoreAPI::ErrorCode(int id, int code)
     return "";
 }
 
-
-
-void WINAPI TelldusCoreAPI::RawDataEventCallback(const char *data, int controllerId, int, void*)
-{
-    static QStringList lastEvent;
-    QStringList eventInfo;
-    eventInfo << "RawDataEvent";
-    eventInfo << QTime::currentTime().toString("hh:mm:ss.zzz");
-    eventInfo << QString::fromLocal8Bit(data).split(";");
-    eventInfo << QString::number(controllerId);
-    if(lastEvent == eventInfo) // Duplicate callback
-    {
-        lastEvent = eventInfo;
-        return;
-    }
-    lastEvent = eventInfo;
-
-    TelldusCore::Instance()->RawDataEvent(eventInfo);
-}
-
 void WINAPI TelldusCoreAPI::DeviceEventCallback(int deviceId, int method, const char *data, int, void*)
 {
     static quint64 lastEvent = 0;
@@ -288,54 +270,36 @@ void WINAPI TelldusCoreAPI::DeviceEventCallback(int deviceId, int method, const 
         return;
     }
     lastEvent = thisEvent;
+    int eventValue = atoi(data);
 
-    TelldusCore::Instance()->DeviceEvent(deviceId,method,data);
+    TelldusCore::Instance()->DeviceEvent(deviceId,method,eventValue,"switch");
 }
 
-void WINAPI TelldusCoreAPI::SensorEventCallback(const char *protocol, const char *model, int sensorId, int dataType, const char *value, int, int, void*)
+void WINAPI TelldusCoreAPI::SensorEventCallback(const char*, const char *, int sensorId, int dataType, const char *value, int, int, void*)
 {
-    TelldusCore::Instance()->SensorEvent(protocol, model, sensorId, dataType, value);
+    static quint64 lastEvent = 0;
+    quint64 thisEvent = QDateTime::currentDateTime().toMSecsSinceEpoch();
+    if(thisEvent == lastEvent)
+    {
+        return;
+    }
+    lastEvent = thisEvent;
+    int eventValue = atoi(value);
+
+    TelldusCore::Instance()->DeviceEvent(sensorId, dataType, eventValue,"sensor");
+}
+
+void WINAPI TelldusCoreAPI::RawDataEventCallback(const char *data, int controllerId, int, void*)
+{
+
 }
 
 void WINAPI TelldusCoreAPI::DeviceChangeEventCallback(int deviceId, int changeEvent, int changeType, int, void*)
 {
-    static QStringList lastEvent;
-    QStringList eventInfo;
-    eventInfo << "DeviceChangeEvent";
-    eventInfo << QTime::currentTime().toString("hh:mm:ss.zzz");
-    eventInfo << QString::number(deviceId);
-    eventInfo << QString::number(changeEvent);
-    eventInfo << QString::number(changeType);
 
-    if(lastEvent == eventInfo) // Duplicate callback
-    {
-        lastEvent = eventInfo;
-        return;
-    }
-    lastEvent = eventInfo;
-
-    TelldusCore::Instance()->DeviceChangeEvent(eventInfo);
 }
 
 void WINAPI TelldusCoreAPI::ControllerEventCallback(int controllerId, int changeEvent, int changeType, const char *newValue, int, void*)
 {
-    static QStringList lastEvent;
-    QStringList eventInfo;
-    eventInfo << "ControllerEvent";
-    eventInfo << QTime::currentTime().toString("hh:mm:ss.zzz");
-    eventInfo << QString::number(controllerId);
-    eventInfo << QString::number(changeEvent);
-    eventInfo << QString::number(changeType);
-    eventInfo << QString::fromLocal8Bit(newValue);
 
-    if(lastEvent == eventInfo) // Duplicate callback
-    {
-        lastEvent = eventInfo;
-        return;
-    }
-    lastEvent = eventInfo;
-
-    TelldusCore::Instance()->ControllerEvent(eventInfo);
 }
-
-

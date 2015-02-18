@@ -40,7 +40,7 @@ public:
 
     void SetLastCommand(const int &lastSentCommand) {this->lastCommand = lastSentCommand;}
     int GetLastCommand() const {return lastCommand;}
-    QString GetLastCommand();
+    QString GetLastCommandText();
 
     void SetLastValue(const int &value) {this->lastValue = value;}
     int GetLastValue() const {return lastValue;}

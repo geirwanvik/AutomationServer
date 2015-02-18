@@ -27,28 +27,29 @@ public:
         Down = 256,
         Stop = 512
     };
+    enum SensorTypes
+    {
+        Temperature = 1,
+        Humidity = 2,
+        RainRate = 4,
+        RainTotal = 8,
+        WindDirection = 16,
+        WindAverage = 32,
+        WindGust = 64
+    };
 
     QString ClearAllDevicesInCore();
     QString RegisterNewDevice(Devices &dev);
     QList<Devices> LookForSensors(void);
-
     QString RegisterNewSensor(Devices &dev);
 
-
-
 signals:
-    void RawDataEvent(QStringList param);
-    void ControllerEvent(QStringList param);
-    void SensorEvent(const char *protocol, const char *model, int id, int dataType, const char *value);
-    void DeviceEvent(int id, int command, const char *data);
-    void DeviceChangeEvent(QStringList param);
-
+    void DeviceEvent(int id, int command, int value, QString type);
 
 private slots:
 
 public slots:
     QString DeviceCommand(int id, int command, int value);
-
 
 private:
 

@@ -63,7 +63,7 @@ Devices::~Devices()
 
 }
 
-QString Devices::GetLastCommand()
+QString Devices::GetLastCommandText()
 {
     QString msg;
     if(lastCommand == 1)

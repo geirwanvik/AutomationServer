@@ -4,20 +4,16 @@ Manager::Manager(QObject *parent) : QObject(parent)
 {
     qRegisterMetaType< QList<int> >("QList<int>");
     QString msg;
-    tDCore = new TelldusCoreAPI(this);
+    telldusCore = new TelldusCoreAPI(this);
     tcpServer = new Server(this);
 
     // Singleton instance of TelldusCoreAPI to forward events from the static callback functions
-    connect(TelldusCore::Instance(),SIGNAL(DeviceChangeEvent(QStringList)),this,SLOT(RawEvent(QStringList)));
-    connect(TelldusCore::Instance(),SIGNAL(ControllerEvent(QStringList)),this,SLOT(RawEvent(QStringList)));
-    connect(TelldusCore::Instance(),SIGNAL(RawDataEvent(QStringList)),this,SLOT(RawEvent(QStringList)));
-
-    //connect(TelldusCore::Instance(),SIGNAL(SensorEvent(const char*,const char*,int,int,const char*)),
-    //        this,SLOT(SensorEvent(const char*,const char*,int,int,const char*)));
-    connect(TelldusCore::Instance(),SIGNAL(DeviceEvent(int,int,const char*)),
-            this,SLOT(DeviceEvent(int,int,const char*)));
+    connect(TelldusCore::Instance(),SIGNAL(DeviceEvent(int,int,int,QString)),
+            this,SLOT(DeviceEvent(int,int,int,QString)));
 
     connect(tcpServer,SIGNAL(TelegramReceived(QStringList)),this,SLOT(ProcessIncomingTelegram(QStringList)));
+
+    connect(QCoreApplication::instance(),SIGNAL(aboutToQuit()),this,SLOT(AboutToQuit()));
 
 
     // TEST
@@ -75,7 +71,7 @@ Manager::Manager(QObject *parent) : QObject(parent)
     }
 
     // Clear all devices in telldusd
-    msg = tDCore->ClearAllDevicesInCore();
+    msg = telldusCore->ClearAllDevicesInCore();
     if(msg.compare("Success") != 0)
     {
         // Failed to remove devices from telldusd
@@ -86,7 +82,7 @@ Manager::Manager(QObject *parent) : QObject(parent)
     QList<Devices>::iterator i;
     for(i = deviceList.begin(); i != deviceList.end(); i++)
     {
-        msg = tDCore->RegisterNewDevice((*i));
+        msg = telldusCore->RegisterNewDevice((*i));
         if(msg.compare("Success") != 0)
         {
             // Send error string to client
@@ -98,6 +94,9 @@ Manager::Manager(QObject *parent) : QObject(parent)
     {
         qDebug() << (*i).GetId() << (*i).GetName();
     }
+
+    SaveConfig();
+
     LoadSchedule();
 }
 
@@ -107,48 +106,58 @@ Manager::~Manager()
 
 }
 
-void Manager::RawEvent(QStringList eventList)
+
+
+void Manager::DeviceEvent(int eventId, int eventCommand, int eventData, QString type)
 {
-    // Log if enabled
-
-    // Forward raw events if client is looking for new switches and sensors
-    //qDebug() << eventList;
-
-}
-
-void Manager::DeviceEvent(int eventId, int eventCommand, const char *eventData)
-{
-    int eventValue = atoi(eventData);
-
-    foreach(Devices dev, deviceList)
+    if(type == "switch")
     {
-        int id = dev.GetId();
-
-        if(id == eventId)
+        foreach(Devices dev, deviceList)
         {
-            dev.SetLastCommand(eventCommand);
-            dev.SetLastValue(eventValue);
+            int id = dev.GetId();
 
-            foreach(DataBaseItem *item,schedulerList)
+            if(id == eventId)
             {
-                int triggerId = item->getMasterId();
-                if(triggerId == eventId)
-                {
-                    item->CompareToTrigger(eventCommand,eventValue);
-                }
+                dev.SetLastCommand(eventCommand);
+                dev.SetLastValue(eventData);
+                return;
             }
-
-            qDebug() << "Device " << dev.GetName() << ", Id " << QString::number(dev.GetId())
-                     << ", type " << dev.GetType() << " is now " << (QString)dev.GetLastCommand() << "value " << dev.GetLastValue();
-            return;
         }
     }
+    else if(type == "sensor")
+    {
+        foreach(Devices dev, deviceList)
+        {
+            int id = dev.GetId();
+            int command = (int)dev.GetLastCommand();
+
+            if(id == eventId && command == eventCommand)
+            {
+                dev.SetLastValue(eventData);
+                return;
+            }
+        }
+        Devices dev;
+        dev.SetId(eventId);
+        dev.SetLastCommand(eventCommand);
+        dev.SetLastValue(eventData);
+        telldusCore->RegisterNewSensor(dev);
+        deviceList.append(dev);
+    }
+    SaveConfig();
+
+
 }
 
 
 void Manager::ProcessIncomingTelegram(QStringList telegram)
 {
     qDebug() << telegram;
+}
+
+void Manager::AboutToQuit()
+{
+    SaveConfig();
 }
 
 QString Manager::SaveConfig()
@@ -204,6 +213,7 @@ QString Manager::LoadConfig()
 QString Manager::SaveSchedule()
 {
 
+    return "Success";
 }
 
 QString Manager::LoadSchedule()
@@ -217,7 +227,7 @@ QString Manager::LoadSchedule()
     {
         DataBaseItem *newItem = new DataBaseItem;
         newItem->ParseListString(string);
-        connect(newItem,SIGNAL(SlaveSignal(int,int,int)),tDCore,SLOT(DeviceCommand(int,int,int)));
+        connect(newItem,SIGNAL(SlaveSignal(int,int,int)),telldusCore,SLOT(DeviceCommand(int,int,int)));
         schedulerList.append(newItem);
     }
     return "Success";
