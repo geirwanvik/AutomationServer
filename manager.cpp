@@ -19,6 +19,7 @@ Manager::Manager(QObject *parent) : QObject(parent)
 
     connect(tcpServer,SIGNAL(TelegramReceived(QStringList)),this,SLOT(ProcessIncomingTelegram(QStringList)));
 
+
     // TEST
     QString name = "Stikk";
     QString protocol = "arctech";
@@ -38,18 +39,28 @@ Manager::Manager(QObject *parent) : QObject(parent)
 
     Devices Dimmer(name,protocol,model,house,unit,type);
 
-    name = "Switch";
+    name = "Switch_1.1";
+    protocol = "arctech";
+    model = "selflearning-switch:nexa";
+    house = "15327318";
+    unit = "11";
+    type = "switch";
+
+    Devices Switch(name,protocol,model,house,unit,type);
+
+    name = "Switch_1.2";
     protocol = "arctech";
     model = "selflearning-switch:nexa";
     house = "15327318";
     unit = "12";
     type = "switch";
 
-    Devices Switch(name,protocol,model,house,unit,type);
+    Devices Switch2(name,protocol,model,house,unit,type);
 
     deviceList.append(Stikk);
     deviceList.append(Dimmer);
     deviceList.append(Switch);
+    deviceList.append(Switch2);
 
     // TEST END
 
@@ -87,6 +98,7 @@ Manager::Manager(QObject *parent) : QObject(parent)
     {
         qDebug() << (*i).GetId() << (*i).GetName();
     }
+    LoadSchedule();
 }
 
 
@@ -100,14 +112,14 @@ void Manager::RawEvent(QStringList eventList)
     // Log if enabled
 
     // Forward raw events if client is looking for new switches and sensors
-    qDebug() << eventList;
+    //qDebug() << eventList;
 
 }
 
 void Manager::DeviceEvent(int eventId, int eventCommand, const char *eventData)
 {
     int eventValue = atoi(eventData);
-    qDebug() << QString::number(eventValue);
+
     foreach(Devices dev, deviceList)
     {
         int id = dev.GetId();
@@ -116,15 +128,14 @@ void Manager::DeviceEvent(int eventId, int eventCommand, const char *eventData)
         {
             dev.SetLastCommand(eventCommand);
             dev.SetLastValue(eventValue);
-            if(id == 3 && eventCommand == 1)
+
+            foreach(DataBaseItem *item,schedulerList)
             {
-                tDCore->DeviceCommand(2,1,256);
-              //  tDCore->DeviceCommand(1,1,0);
-            }
-            else if(id == 3 && eventCommand == 2)
-            {
-                tDCore->DeviceCommand(2,2,0);
-              //  tDCore->DeviceCommand(1,2,0);
+                int triggerId = item->getMasterId();
+                if(triggerId == eventId)
+                {
+                    item->CompareToTrigger(eventCommand,eventValue);
+                }
             }
 
             qDebug() << "Device " << dev.GetName() << ", Id " << QString::number(dev.GetId())
@@ -189,12 +200,6 @@ QString Manager::LoadConfig()
     return ("Success");
 }
 
-/*
- * master,id:,param:,value:,condition:,slave,id:,param:,value:,slave,id:,param:,value:,slave,id:,param:,value:
- * master,id:,param:,value:,condition:,slave,id:,param:,value:,slave,id:,param:,value:,slave,id:,param:,value:
- * master,id:,param:,value:,condition:,slave,id:,param:,value:,slave,id:,param:,value:,slave,id:,param:,value:
- * master,id:,param:,value:,condition:,slave,id:,param:,value:,slave,id:,param:,value:,slave,id:,param:,value:
-*/
 
 QString Manager::SaveSchedule()
 {
@@ -203,8 +208,18 @@ QString Manager::SaveSchedule()
 
 QString Manager::LoadSchedule()
 {
-    QString testStringOn = "master,id:3,param:12,value:1,condition:=,slave,id:1,param:1,value:,slave,id:2,param:16,value:50";
-    QString testStringOff = "master,id:3,param:12,value:2,condition:=,slave,id:1,param:2,value:,slave,id:2,param:16,value:0";
+    QString testStringOn = "master,3,1,0,=,slave,1,1,0,slave,2,16,255";
+    QString testStringOff = "master,3,2,0,=,slave,1,2,0,slave,2,16,0";
     QStringList list;
     list << testStringOn << testStringOff;
+
+    foreach(QString string, list)
+    {
+        DataBaseItem *newItem = new DataBaseItem;
+        newItem->ParseListString(string);
+        connect(newItem,SIGNAL(SlaveSignal(int,int,int)),tDCore,SLOT(DeviceCommand(int,int,int)));
+        schedulerList.append(newItem);
+    }
+    return "Success";
+
 }

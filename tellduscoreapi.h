@@ -33,7 +33,6 @@ public:
     QList<Devices> LookForSensors(void);
 
     QString RegisterNewSensor(Devices &dev);
-    QString DeviceCommand(int id, int command, int value);
 
 
 
@@ -48,7 +47,7 @@ signals:
 private slots:
 
 public slots:
-
+    QString DeviceCommand(int id, int command, int value);
 
 
 private:

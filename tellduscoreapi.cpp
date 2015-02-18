@@ -126,10 +126,6 @@ QString TelldusCoreAPI::RegisterNewDevice(Devices &dev)
     }
     return returnMsg;
 }
-/*
- * (int id, QString &name, QString &protocol, QString &model, QString &house, QString &unit,
-            QString &type, int supportedCommands,int lastCommand, int lastValue);
-            */
 
 QList<Devices> TelldusCoreAPI::LookForSensors()
 {
@@ -156,7 +152,6 @@ QString TelldusCoreAPI::DeviceCommand(int id, int command, int value)
     int success;
     char dimmerValue = value;
     int returnMethod = tdMethods(id,command);
-    qDebug() << QString::number(returnMethod);
     if(returnMethod == command)
     {
         if(command == TELLSTICK_TURNON)
@@ -286,6 +281,14 @@ void WINAPI TelldusCoreAPI::RawDataEventCallback(const char *data, int controlle
 
 void WINAPI TelldusCoreAPI::DeviceEventCallback(int deviceId, int method, const char *data, int, void*)
 {
+    static quint64 lastEvent = 0;
+    quint64 thisEvent = QDateTime::currentDateTime().toMSecsSinceEpoch();
+    if(thisEvent == lastEvent)
+    {
+        return;
+    }
+    lastEvent = thisEvent;
+
     TelldusCore::Instance()->DeviceEvent(deviceId,method,data);
 }
 

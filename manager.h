@@ -8,6 +8,7 @@
 #include "device.h"
 #include "tellduscoreapi.h"
 #include "server.h"
+#include "databaseitem.h"
 
 class Manager : public QObject
 {
@@ -30,6 +31,7 @@ private:
 
 
     QList<Devices> deviceList;
+    QList<DataBaseItem*> schedulerList;
     TelldusCoreAPI *tDCore;
     Server *tcpServer;
 
