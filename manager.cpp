@@ -2,20 +2,25 @@
 
 Manager::Manager(QObject *parent) : QObject(parent)
 {
-    qRegisterMetaType< QList<int> >("QList<int>");
-    QString msg;
-    telldusCore = new TelldusCoreAPI(this);
+    tellstick = new Tellstick(this);
     tcpServer = new Server(this);
 
     // Singleton instance of TelldusCoreAPI to forward events from the static callback functions
-    connect(TelldusCore::Instance(),SIGNAL(DeviceEvent(int,int,int,QString)),
-            this,SLOT(DeviceEvent(int,int,int,QString)));
+    connect(TellstickSingleton::Instance(),SIGNAL(deviceEvent(int,int,int,QString)),
+            this,SLOT(deviceEvent(int,int,int,QString)));
 
-    connect(tcpServer,SIGNAL(TelegramReceived(QStringList)),this,SLOT(ProcessIncomingTelegram(QStringList)));
+    // Logging
+    connect(TellstickSingleton::Instance(),SIGNAL(logEvent(QString)), this, SLOT(logEvent(QString)));
+    connect(tcpServer,SIGNAL(logEvent(QString)),this,SLOT(logEvent(QString)));
 
-    connect(QCoreApplication::instance(),SIGNAL(aboutToQuit()),this,SLOT(AboutToQuit()));
+    // Signals from tcp server
+    connect(tcpServer,SIGNAL(toggleLookForDevices(QString)),this,SLOT(toggleLookForNewDevices(QString)));
+    connect(tcpServer,SIGNAL(readAllDevices()),this,SLOT(readAllDevices()));
+    connect(tcpServer,SIGNAL(writeAllDevices(QDataStream&,int)),this,SLOT(writeAllDevices(QDataStream&,int)));
 
 
+    lookForNewDevices = false;
+/*
     // TEST
     QString name = "Stikk";
     QString protocol = "arctech";
@@ -23,17 +28,19 @@ Manager::Manager(QObject *parent) : QObject(parent)
     QString house = "123456";
     QString unit = "1";
     QString type = "switch";
+    QString subType = "addon";
 
-    Devices Stikk(name,protocol,model,house,unit,type);
+    Device Stikk(name,protocol,model,house,unit,type,subType);
 
     name = "Dimmer";
     protocol = "arctech";
     model = "selflearning-dimmer:nexa";
     house = "123457";
     unit = "1";
-    type = "dimmer";
+    type = "switch";
+    subType = "something";
 
-    Devices Dimmer(name,protocol,model,house,unit,type);
+    Device Dimmer(name,protocol,model,house,unit,type,subType);
 
     name = "Switch_1.1";
     protocol = "arctech";
@@ -41,8 +48,9 @@ Manager::Manager(QObject *parent) : QObject(parent)
     house = "15327318";
     unit = "11";
     type = "switch";
+    subType = "vimana";
 
-    Devices Switch(name,protocol,model,house,unit,type);
+    Device Switch(name,protocol,model,house,unit,type,subType);
 
     name = "Switch_1.2";
     protocol = "arctech";
@@ -50,54 +58,34 @@ Manager::Manager(QObject *parent) : QObject(parent)
     house = "15327318";
     unit = "12";
     type = "switch";
+    subType = "zwei";
 
-    Devices Switch2(name,protocol,model,house,unit,type);
+    Device Switch2(name,protocol,model,house,unit,type,subType);
 
     deviceList.append(Stikk);
     deviceList.append(Dimmer);
     deviceList.append(Switch);
     deviceList.append(Switch2);
 
+    saveConfig();
+
     // TEST END
+*/
 
 
-
-    // Check if config file exists, else inform client.
-    msg = LoadConfig();
-    if(msg.compare("Success") != 0)
+    // Check if config file exists, else create it empty.
+    bool success = loadConfig();
+    if(!success)
     {
-        // Send error could not load file
-        qDebug() << msg;
+        emit logEvent(tr("Config file not found, creating new"));
+        success = saveConfig();
+    }
+    if(!success) // Save also failed
+    {
+        emit logEvent(tr("Could not create config file on disk, changes will not be saved"));
     }
 
-    // Clear all devices in telldusd
-    msg = telldusCore->ClearAllDevicesInCore();
-    if(msg.compare("Success") != 0)
-    {
-        // Failed to remove devices from telldusd
-        qDebug() << msg;
-    }
-
-    // Add devices from file list into telldusd
-    QList<Devices>::iterator i;
-    for(i = deviceList.begin(); i != deviceList.end(); i++)
-    {
-        msg = telldusCore->RegisterNewDevice((*i));
-        if(msg.compare("Success") != 0)
-        {
-            // Send error string to client
-            qDebug() << msg;
-        }
-    }
-
-    for(i = deviceList.begin(); i != deviceList.end(); i++)
-    {
-        qDebug() << (*i).GetId() << (*i).GetName();
-    }
-
-    SaveConfig();
-
-    LoadSchedule();
+    loadSchedule();
 }
 
 
@@ -106,61 +94,75 @@ Manager::~Manager()
 
 }
 
-
-
-void Manager::DeviceEvent(int eventId, int eventCommand, int eventData, QString type)
+void Manager::logEvent(QString event)
 {
-    if(type == "switch")
-    {
-        foreach(Devices dev, deviceList)
-        {
-            int id = dev.GetId();
+    // Log if enabled
 
-            if(id == eventId)
-            {
-                dev.SetLastCommand(eventCommand);
-                dev.SetLastValue(eventData);
-                return;
-            }
+    // Forward raw events if client is looking for new switches and sensors
+    //qDebug() << event;
+
+}
+
+void Manager::deviceEvent(int eventId, int eventCommand, int eventValue, QString deviceType)
+{
+    foreach(Device dev, deviceList)
+    {
+        int id = dev.getId();
+
+        if(id == eventId)
+        {
+            dev.setLastCommand(eventCommand);
+            dev.setLastValue(eventValue);
+            qDebug() << "Device " << deviceType << " id " << eventId << " command " << eventCommand << " value " << eventValue;
+            return;
         }
     }
-    else if(type == "sensor")
+    // A new sensor will not exist in list before registered in client
+    if(lookForNewDevices)
     {
-        foreach(Devices dev, deviceList)
-        {
-            int id = dev.GetId();
-            int command = (int)dev.GetLastCommand();
-
-            if(id == eventId && command == eventCommand)
-            {
-                dev.SetLastValue(eventData);
-                return;
-            }
-        }
-        Devices dev;
-        dev.SetId(eventId);
-        dev.SetLastCommand(eventCommand);
-        dev.SetLastValue(eventData);
-        telldusCore->RegisterNewSensor(dev);
-        deviceList.append(dev);
+        newDeviceFound(eventId, eventCommand, eventValue, deviceType);
     }
-    SaveConfig();
-
-
 }
 
-
-void Manager::ProcessIncomingTelegram(QStringList telegram)
+void Manager::toggleLookForNewDevices(QString cmd)
 {
-    qDebug() << telegram;
+    if(cmd == "on")
+    {
+        lookForNewDevices = true;
+    }
+    if(cmd == "off")
+    {
+        lookForNewDevices = false;
+    }
 }
 
-void Manager::AboutToQuit()
+void Manager::readAllDevices()
 {
-    SaveConfig();
+    QStringList list;
+    int elements = 0;
+    foreach (Device dev, deviceList)
+    {
+        list << dev.getName();
+        list << dev.getType();
+        list << dev.getSubType();
+        list << dev.getLastCommandText();
+        elements++;
+    }
+    tcpServer->sendData(list,elements,'A','W');
 }
 
-QString Manager::SaveConfig()
+void Manager::writeAllDevices(QDataStream &in, int elements)
+{
+
+}
+
+void Manager::newDeviceFound(int eventId, int eventCommand, int eventValue, QString deviceType)
+{
+
+}
+
+
+bool Manager::saveConfig()
 {
     QString path = QCoreApplication::applicationDirPath();
     path.append("/config.dat");
@@ -168,23 +170,24 @@ QString Manager::SaveConfig()
 
     if(!file.open(QIODevice::WriteOnly))
     {
-        return ("Cannot open file for writing: " + file.errorString());
+        emit logEvent(tr("Cannot open file for writing: %1").arg(file.errorString()));
+        return false;
     }
 
     QDataStream out(&file);
-    out.setVersion(QDataStream::Qt_5_0);
+    out.setVersion(QDataStream::Qt_5_3);
 
-    QList<Devices>::iterator i;
+    QList<Device>::iterator i;
     for(i = deviceList.begin(); i != deviceList.end(); i++)
     {
         out << (*i);
     }
 
     file.close();
-    return ("Success");
+    return true;
 }
 
-QString Manager::LoadConfig()
+bool Manager::loadConfig()
 {
     QString path = QCoreApplication::applicationDirPath();
     path.append("/config.dat");
@@ -192,32 +195,36 @@ QString Manager::LoadConfig()
 
     if(!file.open(QIODevice::ReadOnly))
     {
-        return ("Cannot open file for reading: " + file.errorString());
+        emit logEvent(tr("Cannot open file for reading: %1").arg(file.errorString()));
+        return false;
     }
 
     QDataStream in(&file);
-    in.setVersion(QDataStream::Qt_5_0);
+    in.setVersion(QDataStream::Qt_5_3);
+
     deviceList.clear();
-    while(!in.atEnd())
+
+    while(!in.atEnd()) // Create the device list and register devices in telldus core
     {
-        Devices tempDev;
+        Device tempDev;
         in >> tempDev;
+        tellstick->registerNewDevice(tempDev);
         deviceList.append(tempDev);
     }
 
     file.close();
-    return ("Success");
+    return true;
 }
 
 
-QString Manager::SaveSchedule()
+bool Manager::saveSchedule()
 {
-
-    return "Success";
+    return true;
 }
 
-QString Manager::LoadSchedule()
+bool Manager::loadSchedule()
 {
+    /*
     QString testStringOn = "master,3,1,0,=,slave,1,1,0,slave,2,16,255";
     QString testStringOff = "master,3,2,0,=,slave,1,2,0,slave,2,16,0";
     QStringList list;
@@ -227,9 +234,10 @@ QString Manager::LoadSchedule()
     {
         DataBaseItem *newItem = new DataBaseItem;
         newItem->ParseListString(string);
-        connect(newItem,SIGNAL(SlaveSignal(int,int,int)),telldusCore,SLOT(DeviceCommand(int,int,int)));
+        connect(newItem,SIGNAL(SlaveSignal(int,int,int)),tDCore,SLOT(deviceCommand(int,int,int)));
         schedulerList.append(newItem);
     }
-    return "Success";
+    */
+    return true;
 
 }

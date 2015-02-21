@@ -5,28 +5,29 @@
 #-------------------------------------------------
 
 QT       += core
-
 QT       -= gui
 QT       += network
 TARGET = AutomationServer
 CONFIG   += console
 CONFIG   -= app_bundle
+CONFIG   += c++11
 
 TEMPLATE = app
 
 SOURCES += main.cpp \
-    tellduscoreapi.cpp \
     server.cpp \
     device.cpp \
     manager.cpp \
-    databaseitem.cpp
+    databaseitem.cpp \
+    tellstick.cpp \
 
 HEADERS += \
-    tellduscoreapi.h \
     server.h \
     manager.h \
     singleton.h \
     device.h \
-    databaseitem.h
+    databaseitem.h \
+    common.h \
+    tellstick.h
 
 LIBS    += "/usr/local/lib/libtelldus-core.so"

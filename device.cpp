@@ -1,6 +1,6 @@
 #include "device.h"
 
-Devices::Devices()
+Device::Device()
 {
     this->id = 0;
     this->name = "Not Set";
@@ -9,13 +9,14 @@ Devices::Devices()
     this->house = "Not Set";
     this->unit = "Not Set";
     this->type = "Not Set";
+    this->subType = "Not Set";
     this->supportedCommands = 0;
     this->lastCommand = 0;
     this->lastValue = 0;
 }
 
-Devices::Devices(int id, QString &name, QString &protocol, QString &model, QString &house, QString &unit,
-               QString &type, int supportedCommands, int lastCommand, int value)
+Device::Device(int id, QString &name, QString &protocol, QString &model, QString &house, QString &unit,
+               QString &type,QString &subType, int supportedCommands, int lastCommand, int value)
 {
     this->id = id;
     this->name = name;
@@ -24,13 +25,14 @@ Devices::Devices(int id, QString &name, QString &protocol, QString &model, QStri
     this->house = house;
     this->unit = unit;
     this->type = type;
+    this->subType = subType;
     this->supportedCommands = supportedCommands;
     this->lastCommand = lastCommand;
     this->lastValue = value;
 }
 
-Devices::Devices(QString &name, QString &protocol, QString &model, QString &paramHouse, QString &paramUnit,
-               QString &type)
+Device::Device(QString &name, QString &protocol, QString &model, QString &paramHouse, QString &paramUnit,
+               QString &type, QString &subType)
 {
     this->id = 0;
     this->name = name;
@@ -39,12 +41,13 @@ Devices::Devices(QString &name, QString &protocol, QString &model, QString &para
     this->house = paramHouse;
     this->unit = paramUnit;
     this->type = type;
+    this->subType = subType;
     this->supportedCommands = 0;
     this->lastCommand = 0;
     this->lastValue = 0;
 }
 
-Devices::Devices(const Devices &other)
+Device::Device(const Device &other)
 {
     this->id = other.id;
     this->name = other.name;
@@ -53,48 +56,64 @@ Devices::Devices(const Devices &other)
     this->house = other.house;
     this->unit = other.unit;
     this->type = other.type;
+    this->subType = other.subType;
     this->supportedCommands = other.supportedCommands;
     this->lastCommand = other.lastCommand;
     this->lastValue = other.lastValue;
 }
 
-Devices::~Devices()
+Device::~Device()
 {
 
 }
 
-QString Devices::GetLastCommandText()
+QString Device::getLastCommandText()
 {
-    QString msg;
-    if(lastCommand == 1)
+    if(type == "sensor")
     {
-        msg = "On";
+        switch(lastCommand)
+        {
+        case Temperature:
+            return (QObject::tr("temperature:%1degC").arg(lastValue));
+        case Humidity:
+            return (QObject::tr("humidity:%1%RH").arg(lastValue));
+        }
     }
-    else if(lastCommand == 2)
+    if(type == "switch")
     {
-        msg = "Off";
+        switch(lastCommand)
+        {
+        case TurnOn:
+            return (QObject::tr("on"));
+        case TurnOff:
+            return (QObject::tr("off"));
+        case Dim:
+            return (QObject::tr("dim:%1%").arg(lastValue));
+        case Learn:
+            return (QObject::tr("learn"));
+        }
     }
-    return msg;
+    return (QObject::tr("Command not found"));
 }
 
-
-QDataStream &operator<<(QDataStream &out, const Devices &device)
+QDataStream &operator<<(QDataStream &out, const Device &device)
 {
-    out << device.GetId()
-        << device.GetName()
-        << device.GetProtocol()
-        << device.GetModel()
-        << device.GetHouse()
-        << device.GetUnit()
-        << device.GetType()
-        << device.GetSupportedCommands()
-        << device.GetLastCommand()
-        << device.GetLastValue();
+    out << device.getId()
+        << device.getName()
+        << device.getProtocol()
+        << device.getModel()
+        << device.getHouse()
+        << device.getUnit()
+        << device.getType()
+        << device.getSubType()
+        << device.getSupportedCommands()
+        << device.getLastCommand()
+        << device.getLastValue();
 
     return out;
 }
 
-QDataStream &operator>>(QDataStream &in, Devices &device)
+QDataStream &operator>>(QDataStream &in, Device &device)
 {
     int id;
     QString name;
@@ -103,6 +122,7 @@ QDataStream &operator>>(QDataStream &in, Devices &device)
     QString house;
     QString unit;
     QString type;
+    QString subType;
     int supportedCommands;
     int lastCommand;
     int value;
@@ -114,11 +134,11 @@ QDataStream &operator>>(QDataStream &in, Devices &device)
        >> house
        >> unit
        >> type
+       >> subType
        >> supportedCommands
        >> lastCommand
        >> value;
 
-    device = Devices(id,name,protocol,model,house,unit,type,supportedCommands,lastCommand,value);
+    device = Device(id,name,protocol,model,house,unit,type,subType,supportedCommands,lastCommand,value);
     return in;
 }
-

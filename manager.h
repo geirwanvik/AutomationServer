@@ -6,9 +6,10 @@
 #include <QFile>
 
 #include "device.h"
-#include "tellduscoreapi.h"
+#include "tellstick.h"
 #include "server.h"
 #include "databaseitem.h"
+#include "common.h"
 
 class Manager : public QObject
 {
@@ -23,22 +24,26 @@ signals:
 public slots:
 
 private slots:
-    void DeviceEvent(int eventId, int eventCommand, int eventData, QString type);
-    void ProcessIncomingTelegram(QStringList telegram);
-    void AboutToQuit();
+    void logEvent(QString event);
+    void deviceEvent(int eventId, int eventCommand, int eventValue, QString deviceType);
+    void toggleLookForNewDevices(QString cmd);
+    void readAllDevices();
+    void writeAllDevices(QDataStream &in, int elements);
 
 private:
+    void newDeviceFound(int eventId, int eventCommand, int eventValue, QString deviceType);
 
 
-    QList<Devices> deviceList;
+    QList<Device> deviceList;
     QList<DataBaseItem*> schedulerList;
-    TelldusCoreAPI *telldusCore;
+    Tellstick *tellstick;
     Server *tcpServer;
+    bool lookForNewDevices;
 
-    QString SaveConfig(void);
-    QString LoadConfig(void);
-    QString SaveSchedule(void);
-    QString LoadSchedule(void);
+    bool saveConfig(void);
+    bool loadConfig(void);
+    bool saveSchedule(void);
+    bool loadSchedule(void);
 
 };
 

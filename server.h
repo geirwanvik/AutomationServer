@@ -12,21 +12,25 @@ public:
     ~Server();
 
 signals:
-    void TelegramReceived(QStringList);
+    void logEvent(QString msg);
+    void toggleLookForDevices(QString cmd);
+    void readAllDevices();
+    void writeAllDevices(QDataStream &in, int elements);
 
 public slots:
-    void SendData(QStringList list);
+    void sendData(QStringList list, quint16 elements, quint8 command, quint8 direction);
 
 
 private slots:
-    void NewConnection();
-    void Disconnected();
-    void DataReceived();
+    void newConnection();
+    void disconnected();
+    void dataReceived();
 
 private:
+    void processTelegram(quint8 command, quint8 direction, quint16 elements, QDataStream &in);
+
     QTcpServer *tcpServer;
     QTcpSocket *socket;
-    quint16 nextBlockSize;
 };
 
 #endif // SERVER_H
